@@ -555,10 +555,10 @@ and public judgment private(rep : judgment_rep) =
             | JFunc(j, x, isRec) ->
                 let map_fn (e:expr) =
                   if isRec.IsNone then
-                     HC.efun {argl=x; arg_type=fst this.Seq.GoalType.Arr; body=e}
+                     HC.efun {argl=x; arg_type=fst this.Seq.GoalType.Arr; body=e; complexity=[0;0;3]}
                   else
                      HC.efix {argf=x; name=isRec.Value; arg_type=fst this.Seq.GoalType.Arr; body=e
-                              ret_type=snd this.Seq.GoalType.Arr}
+                              ret_type=snd this.Seq.GoalType.Arr; complexity=[0;0;3]}
                 Seq.map map_fn (j.ReapLazy())
             | JTuple(js, olds) -> 
                 let news  = js.map(judgment.ReapLazyFn)

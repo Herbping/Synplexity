@@ -10,6 +10,7 @@ type id       = string
 type hole     = int
 type world    = int
 type pvar     = int
+type complexity = int list
 type arg_info =
    | AIUninteresting
    | AIDecIn of id
@@ -557,8 +558,8 @@ and [<StructuralEquality;NoComparison>] typ_node =
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // EXPRESSION LANGUAGE.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-and lambda   = { argl : id; arg_type : typ; body : expr }
-and fixpoint = { argf : id; arg_type : typ; body : expr; name : id; ret_type : typ }
+and lambda   = { argl : id; arg_type : typ; body : expr; complexity : int list }
+and fixpoint = { argf : id; arg_type : typ; body : expr; name : id; ret_type : typ; complexity : int list }
 and expr (node:expr_node, tag:int, hkey:int) =
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // PROPERTIES.
@@ -639,10 +640,10 @@ and expr (node:expr_node, tag:int, hkey:int) =
             | ECtor(c, e)     -> match e.Node with EUnit -> sprintf "%s" c
                                                    | _   -> sprintf "%s %s"  c (call n e)
             | EProj(i, e)     -> sprintf "#%d %s" i (call n e)
-            | EFun f          -> sprintf "fun (%s:%O) ->\n%s%s"
-                                          f.argl f.arg_type ind1 (call0 (n + 1) f.body)
-            | EFix f          -> sprintf "fix %s (%s:%O) : %O ->\n%s%s"
-                                          f.name f.argf f.arg_type f.ret_type ind1
+            | EFun f          -> sprintf "fun (%s:%O) |*| %A ->\n%s%s"
+                                          f.argl f.arg_type f.complexity  ind1 (call0 (n + 1) f.body)
+            | EFix f          -> sprintf "fix %s (%s:%O) |*| %A : %O ->\n%s%s"
+                                          f.name f.argf f.arg_type f.complexity f.ret_type ind1
                                           (call0 (n + 1) f.body)
             | ETup es         -> sprintf "(%s)" (String.concat ", " (List.map (call n) es))
             | EMatch(e, bs)   -> sprintf "match %s with\n%s" (call n e)
@@ -714,7 +715,7 @@ and value (node:value_node, tag:int, hkey:int) =
         | VUnit       -> HC.eunit
         | VCtor(c, v) -> HC.ector(c, v.Expr)
         | VTup vs     -> HC.etup(List.map (fun (v:value) -> v.Expr) vs)
-        | VFun vf     -> HC.efun {argl=vf.argv; arg_type=vf.arg_type; body=vf.body}
+        | VFun vf     -> HC.efun {argl=vf.argv; arg_type=vf.arg_type; body=vf.body; complexity=[0;0;3]}
         | VRefn _     -> failwith "You can't just convert a refinement into an expression,
                                    silly - that's what synthesis is!"
 
@@ -769,6 +770,7 @@ and synth_problem = {
     synth_type   : typ
     synth_refn   : refn_ext option
     is_rec       : bool
+    complexity_bound : int list option
 }
     with
     override s.ToString () =
@@ -777,7 +779,7 @@ and synth_problem = {
           |> List.map (fun d -> d.ToString())
           |> String.concat "\n"
         let r = if s.is_rec then " rec " else ""
-        sprintf "%s\nlet %s%O : %O |>\n %O = ?" decls r s.synth_name s.synth_type s.synth_refn.Value
+        sprintf "%s\nlet %s%O : %O |>\n %O = ? |*| complexity: %A" decls r s.synth_name s.synth_type s.synth_refn.Value s.complexity_bound.Value
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // HASHCONS INFRASTRUCTURE.

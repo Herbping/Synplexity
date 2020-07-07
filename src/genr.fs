@@ -243,7 +243,7 @@ and synth_impl_r (skrel:skeleton option) (sqnt:sequent) (depth:int) (flags:gen_f
 
         // Create the synthesis subproblem and rule.  We can't be at the top level anymore.
         let es = gen_intro skrel' sqnt' (depth-1) flags
-        es.map(fun e -> HC.efun{argl=x_info.name; arg_type=t1; body=e})
+        es.map(fun e -> HC.efun{argl=x_info.name; arg_type=t1; body=e; complexity=[0;0;3]})
 
 // SYNTH-PRODUCT-R.
 and synth_product_r (skrel:skeleton option) (sqnt:sequent) (depth:int) (flags:gen_flags)

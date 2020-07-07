@@ -96,6 +96,29 @@ let private Synthesize(name:string, r:refn, t:typ, is_rec:id option,
 
     soln
 
+// Run synthesis with complexity bound.
+let private SynthesizeWithBound(name:string, r:refn, t:typ, is_rec:id option,
+                       sampling:SampleMode, enum_strategy:enum_strategy,
+                       verbose:bool, print_time:Timing, refn_sz:int)
+    : expr option =
+    let seq = CreateSequent(r, t, is_rec, sampling)
+    let jit = sampling=SJit
+    let stopwatch = System.Diagnostics.Stopwatch.StartNew()
+    let run = async { return SynthDriver.Synthesize(seq, is_rec, enum_strategy, jit, verbose) }
+    let soln = Async.RunSynchronously(Async.AwaitTimeout(run, 100000))
+    //let soln = Some (SynthDriver.Synthesize(seq, is_rec, enum_strategy, jit, verbose))
+    stopwatch.Stop()
+
+    if print_time = Timing.TimeYes then
+        printfn "Running time: %d ms" (stopwatch.ElapsedMilliseconds)
+    elif print_time = Timing.TimeData then
+        if soln.IsNone then printfn "%s,%d,%s,%f" name refn_sz "timeout" (GenR.Ratio())
+        else                printfn "%s,%d,%d,%f" name refn_sz stopwatch.ElapsedMilliseconds (GenR.Ratio())
+
+    soln
+
+
+
 // Run refcon.
 let private Sample(name:id, n:int) =
     if not(Library.Gam().ContainsKey(name)) then printfn "Binding %s not found." name
@@ -105,6 +128,33 @@ let private Sample(name:id, n:int) =
     for i in [1..n] do
         let ro = SampleAot.SampleAot(Library.Env().[name], t, i)
         if ro.IsSome then printfn "At size %d:\n%O\n" i ro.Value
+
+
+let private Run_with_bound(sp:synth_problem, outstream:IO.StreamWriter, verbose:bool, sampling:SampleMode, print_time:Timing) =
+      match Typecheck(sp) with
+      | Choice2Of2 errmsg -> outstream.WriteLine("Typechecking failed:\n" + errmsg)
+      | Choice1Of2 r_ext  -> // if not sp.complexity_bound.IsNone then  printfn "Parsing result: %s \n" (sp.ToString())  else
+      
+        // Normalize.
+        let r_int =
+          match r_ext with
+          | None -> Choice1Of2(sp.synth_type.Top)
+          | Some r_ext -> Normalize(r_ext, sp.synth_type, sampling)
+
+        match r_int with
+        | Choice2Of2 errMsg -> outstream.WriteLine("Normalization failed:\n" + errMsg)
+        | Choice1Of2 r_int -> 
+ 
+              // Choose what to do.
+              let rec_name = if sp.is_rec then Some sp.synth_name else None
+
+              let nodes = if sp.synth_refn.IsNone then 0 else sp.synth_refn.Value.Nodes
+              let out = SynthesizeWithBound(sp.synth_name, r_int, sp.synth_type, rec_name, sampling,
+                                   EnumRaw, verbose, print_time, nodes)
+              let outstr = if out.IsSome then out.Value.ToString() else "timeout"
+              if print_time <> Timing.TimeData then
+                  outstream.WriteLine(sprintf "%s" outstr)
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // MAIN DRIVER METHOD.
@@ -125,13 +175,13 @@ let public Run(inputfile:string, outputfile:string option,
     // Parse.
     match Parse(input) with
     | Choice2Of2 errmsg -> outstream.WriteLine("Parsing failed:\n" + errmsg)
-    | Choice1Of2 sp     -> if true then outstream.WriteLine("Parsing result:\n" + sp.synth_refn.ToString() ) else
+    | Choice1Of2 sp     ->  if not sp.complexity_bound.IsNone then  Run_with_bound(sp,outstream,verbose,sampling,print_time)  else
 
       // Typecheck.
       match Typecheck(sp) with
       | Choice2Of2 errmsg -> outstream.WriteLine("Typechecking failed:\n" + errmsg)
-      | Choice1Of2 r_ext  -> 
-
+      | Choice1Of2 r_ext  -> // if not sp.complexity_bound.IsNone then  printfn "Parsing result: %s \n" (r_ext.ToString())  else
+      
         // Normalize.
         let r_int =
           match r_ext with

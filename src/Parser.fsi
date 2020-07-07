@@ -22,9 +22,11 @@ type token =
   | COMMA
   | ARROW
   | EQUAL
+  | COMPLEXITY
   | REFINES
   | HOLE
   | WITH
+  | INF
   | NOT
   | UNIT
   | REC
@@ -60,9 +62,11 @@ type tokenId =
     | TOKEN_COMMA
     | TOKEN_ARROW
     | TOKEN_EQUAL
+    | TOKEN_COMPLEXITY
     | TOKEN_REFINES
     | TOKEN_HOLE
     | TOKEN_WITH
+    | TOKEN_INF
     | TOKEN_NOT
     | TOKEN_UNIT
     | TOKEN_REC

@@ -22,12 +22,12 @@ let rec refn_of_list (ls:refn_ext list) : refn_ext =
     | []       -> RECtor("Nil", REUnit)
 
 // Expression declaration.
-let make_expr_decl (fix:bool) (name:id) (args:(id * typ) list) (t:typ) (e:expr) =
+let make_expr_decl (fix:bool) (name:id) (args:(id * typ) list) (t:typ) (e:expr) (comp:int list)=
     if args.Length = 0 then DLibrary(name, e)
     else
         let rec inner_funs args =
             match args with
-            | (x,t)::tl -> HC.efun{argl=x; arg_type=t; body=inner_funs tl}
+            | (x,t)::tl -> HC.efun{argl=x; arg_type=t; body=inner_funs tl; complexity=[0;0;3]}
             | []        -> e
         let rec fix_typ ls =
             match ls with
@@ -35,9 +35,9 @@ let make_expr_decl (fix:bool) (name:id) (args:(id * typ) list) (t:typ) (e:expr) 
             | []           -> t
 
         let func = if fix then HC.efix {name=name; argf=fst args.Head; arg_type=snd args.Head;
-                                        ret_type=fix_typ args.Tail; body=inner_funs args.Tail}
+                                        ret_type=fix_typ args.Tail; body=inner_funs args.Tail; complexity=comp}
                    else        HC.efun {argl=fst args.Head; arg_type=snd args.Head;
-                                        body=inner_funs args.Tail}        
+                                        body=inner_funs args.Tail; complexity=comp}        
         DLibrary(name, func)
 
 // Append a declaration to a synth problem
@@ -63,6 +63,7 @@ let rev_decls sp  = {sp with declarations = List.rev sp.declarations }
 %token REC         // rec
 %token UNIT        // unit
 %token NOT         // not
+%token INF	   // inf
 %token WITH        // with
 
 %token HOLE        // ?
@@ -133,35 +134,44 @@ decls:
 
     // Non-recursive let decl.
     | LET     LID args_list_one COLON typ EQUAL expr SEMI SEMI decls
-	          { app_decl $10 (make_expr_decl false $2 (List.rev $3) $5 $7) }
+	          { app_decl $10 (make_expr_decl false $2 (List.rev $3) $5 $7 [0;0;2]) }
+
+    // Non-recursive let decl with complexity.
+    | LET     LID args_list_one COLON typ COMPLEXITY LPAREN INT COMMA INT COMMA INT RPAREN EQUAL expr SEMI SEMI decls
+	          { app_decl $18 (make_expr_decl false $2 (List.rev $3) $5 $15 [$8;$10;$12]) }
 
 	// Recursive let decl.
     | let_rec_head args_list_one COLON typ EQUAL expr SEMI SEMI decls
-	          { app_decl $9 (make_expr_decl true $1 (List.rev $2) $4 $6) }
+	          { app_decl $9 (make_expr_decl true $1 (List.rev $2) $4 $6 [0;0;2]) }
+
+	// Recursive let decl with complexity.
+    | let_rec_head args_list_one COLON typ COMPLEXITY LPAREN INT COMMA INT COMMA INT RPAREN EQUAL expr SEMI SEMI decls
+	          { app_decl $17 (make_expr_decl true $1 (List.rev $2) $4 $14 [$7;$9;$11]) }
+
+	// Recursive synthesis problem with specified complexity.
+    | let_rec_head COLON typ COMPLEXITY LPAREN INT COMMA INT COMMA INT RPAREN REFINES refn EQUAL HOLE  
+	          {{declarations=[]; synth_name=$1; synth_type=$3; synth_refn=Some $13; is_rec=true; complexity_bound = Some [$6;$8;$10]}}
 
 	// Recursive synthesis problem.
     | let_rec_head COLON typ REFINES refn EQUAL HOLE
-	          {{declarations=[]; synth_name=$1; synth_type=$3; synth_refn=Some $5; is_rec=true}}
+	          {{declarations=[]; synth_name=$1; synth_type=$3; synth_refn=Some $5; is_rec=true; complexity_bound = None}}
 
-	// Recursive synthesis problem with specified complexity.
-    | let_rec_head COLON typ REFINES refn EQUAL HOLE COMPLEXITY 
-	          {{declarations=[]; synth_name=$1; synth_type=$3; synth_refn=Some $5; is_rec=true}}
 
 	// Recursive synthesis problem.
     | let_rec_head COLON typ EQUAL HOLE
-	          {{declarations=[]; synth_name=$1; synth_type=$3; synth_refn=None; is_rec=true}}
+	          {{declarations=[]; synth_name=$1; synth_type=$3; synth_refn=None; is_rec=true; complexity_bound = None}}
 	
 	// No-argument let decl.
 	| let_head EQUAL expr SEMI SEMI decls
-	          { app_decl $6 (make_expr_decl false (fst $1) [] (snd $1) $3)}
+	          { app_decl $6 (make_expr_decl false (fst $1) [] (snd $1) $3 [0;0;2])}
 
 	// Synthesis problem.
     | let_head REFINES refn EQUAL HOLE
-	          {{declarations=[]; synth_name=fst $1; synth_type=snd $1; synth_refn=Some $3; is_rec=false}}
+	          {{declarations=[]; synth_name=fst $1; synth_type=snd $1; synth_refn=Some $3; is_rec=false; complexity_bound = None}}
 
 	// Synthesis problem.
     | let_head EQUAL HOLE
-	          {{declarations=[]; synth_name=fst $1; synth_type=snd $1; synth_refn=None; is_rec=false}}
+	          {{declarations=[]; synth_name=fst $1; synth_type=snd $1; synth_refn=None; is_rec=false; complexity_bound = None}}
 
 type_ctor_one: // NOTE: reversed
     | type_ctor               { [$1]     }
@@ -284,7 +294,7 @@ expr_p1 :
         | PROJ expr_p2                 { HC.eproj($1, $2) }
 		| ctor_chain                   { $1            }
 		| app_chain                    { $1            }
-		| FUN arg ARROW expr           { HC.efun {argl=fst $2; arg_type=snd $2; body=$4}}
+		| FUN arg ARROW expr           { HC.efun {argl=fst $2; arg_type=snd $2; body=$4; complexity=[0;0;3]}}
 	    | MATCH expr WITH branches     { HC.ematch($2, $4)  }
 
 app_chain :

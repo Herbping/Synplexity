@@ -16,13 +16,14 @@ let reserved =
       ; ("let",   LET)
       ; ("rec",   REC)
       ; ("unit",  UNIT)
+      ; ("inf",   INF)
       ; ("not",   NOT)] |> Map.ofList
 
 // Symbols.
 let symbols =
       [ ("?",  HOLE)
       ; ("|>", REFINES)
-      ; ("||", COMPLEXITY)
+      ; ("|*|", COMPLEXITY)
       ; ("=",  EQUAL)
       ; ("->", ARROW)
       ; (",",  COMMA)
@@ -74,7 +75,7 @@ rule token = parse
 	| lowercase (digit | character | '_')*      { create_token lexbuf }
 	| tick lowercase (digit | character | '_')* { TICK (lexeme lexbuf) }
 	| uppercase (digit | character | '_')*      { UID (lexeme lexbuf) }
-	| '?' | "|>" | '=' | "->" | '*' | ',' | "/\\" | "\\/"
+	| '?' | "|>" | "|*|" | '=' | "->" | '*' | ',' | "/\\" | "\\/"
 	| ':' | ';' | '|' | '(' | ')' | '[' | ']'  { create_symbol lexbuf } 
 	| _  { raise (LexErr "Unexpected character")}   
 
