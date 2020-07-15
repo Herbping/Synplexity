@@ -1,6 +1,33 @@
-﻿type 'a list =
-  | Nil
-  | Cons of 'a * 'a list
+﻿type nat =
+  | Z
+  | S of nat
+  
+type bool =
+  | True
+  | False
 
-let rec map : ('a -> 'b) -> 'a list -> 'b list |>
-    ('a -> 'b) -> /\([] -> [], ['a] -> ['b], ['a; 'a] -> ['b; 'b]) = ?
+let bnot (n:bool) : bool =
+    match n with
+      | True u  -> False
+      | False u -> True
+;; 
+
+let rec div2 (n1:nat) : nat = 
+  match n1 with
+  | Z u -> Z
+  | S n2 -> match n2 with 
+      | Z u -> Z
+      | S n3 -> S (div2 n3)
+;;
+
+let rec even (n:nat) : bool =
+    match n with
+      | Z u  -> True
+      | S m  -> bnot (even m)
+;; 
+
+
+let rec mult2 : nat -> nat |>
+  /\(0 -> 0, 1 -> 1,
+     2 -> 2, 3 -> 3,
+     4 -> 4, 5 -> 5,6 -> 6) = ?

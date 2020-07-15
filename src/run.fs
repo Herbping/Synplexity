@@ -180,7 +180,7 @@ let public Run(inputfile:string, outputfile:string option,
       // Typecheck.
       match Typecheck(sp) with
       | Choice2Of2 errmsg -> outstream.WriteLine("Typechecking failed:\n" + errmsg)
-      | Choice1Of2 r_ext  -> // if not sp.complexity_bound.IsNone then  printfn "Parsing result: %s \n" (r_ext.ToString())  else
+      | Choice1Of2 r_ext  -> // if true then  printfn "Parsing result: %s \n" (r_ext.ToString())  else
       
         // Normalize.
         let r_int =

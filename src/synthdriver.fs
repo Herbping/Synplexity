@@ -38,7 +38,8 @@ let rec Synthesize(initial_seq:sequent, is_rec:id option,
         if clock % (matches * 15 + 5) = 0 then proof.AddDepth(0, 1, 0); matches <- matches + 1
 
         // Every _ ticks, increase the scrutinee size by 3.
-        if clock % 30 = 0 then proof.AddDepth(0, 0, 3)
+        if clock % 30 = 0 && clock <= 30 then proof.AddDepth(0, 0, 1)
+
 
         // Advance the search.
         proof.Advance()

@@ -779,7 +779,7 @@ and synth_problem = {
           |> List.map (fun d -> d.ToString())
           |> String.concat "\n"
         let r = if s.is_rec then " rec " else ""
-        sprintf "%s\nlet %s%O : %O |>\n %O = ? |*| complexity: %A" decls r s.synth_name s.synth_type s.synth_refn.Value s.complexity_bound.Value
+        if s.complexity_bound.IsNone then sprintf "%s\nlet %s%O : %O |>\n %O = ? " decls r s.synth_name s.synth_type s.synth_refn.Value else sprintf  "%s\nlet %s%O : %O |>\n %O = ? |*| complexity: %A" decls r s.synth_name s.synth_type s.synth_refn.Value s.complexity_bound.Value
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // HASHCONS INFRASTRUCTURE.

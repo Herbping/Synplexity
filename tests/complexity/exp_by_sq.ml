@@ -22,7 +22,13 @@ let rec mult (n1:nat) (n2:nat) : nat |*| (0,0,1)  =
   | S n3 -> add n2 (mult n3 n2)
 ;; 
 
-
+let rec div2 (n1:nat) : nat = 
+  match n1 with
+  | Z u -> Z
+  | S n2 -> match n2 with 
+      | Z u -> Z
+      | S n3 -> S (div2 n3)
+;;
 
 let bnot (n:bool) : bool =
     match n with
