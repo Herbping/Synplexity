@@ -55,7 +55,10 @@ let public Solve(sequ:sequent, depth:int) =
 
     let exprs = lib_ctx.Value.filter(fun sk -> sk.Type = sequ.GoalType)
                 |> Seq.ofList |> Seq.collect (generate sequ info depth)
+    let exprs = exprs.filter(fun x-> not (x.ToString().Contains("f1") ||x.ToString().Contains("div2") || x.ToString().Contains("add") || x.ToString().Contains("mult") || x.ToString().Contains("S") || x.ToString().Contains("Z")))
+    let exprs_list = Seq.toList exprs
     let exprs = exprs.filter(can_solve)
+    let exprs_list = Seq.toList exprs
     exprs
 
 // Use the library to produce match statement scrutinees.
@@ -90,4 +93,47 @@ let public Scrutinees(sequ:sequent, depth:int) =
                 |> Seq.ofList
                 |> Seq.collect (fun sk -> (generate sequ info depth sk)
                                            .map(fun e -> (e, sk.Name, sk.Type, sk.DecIn)))
-    (Seq.toList exprs).map(can_solve).somes()
+    let exprs_list = Seq.toList exprs
+    exprs_list.map(can_solve).somes()
+
+    
+// Use the library to produce refn for a term
+let public generateDiv2(sequ:sequent) =
+    // Create the gamma and environment for evaluation.
+    let depth = 4
+    let info = lib_info.Value @ (sequ.Unfocused.map(LangExtensions.ToInfoT))
+    let eval_gam = info.map(fun x -> (x.name, x.t)).ToMap()
+    let eval_env w =
+        List.fold (fun (m:Map<_,_>) (x:id_info) ->
+            m.Add(x.name, HC.vrefn x.rs.[w])) lib_env.Value sequ.Unfocused
+
+    // Collect all solved skeletons, evaluate them to a value in every world,
+    // and build refinements
+    let can_solve (e:expr, x:id, t:typ, decIn:id option) : (expr * id_info * typ * refns) option =
+        let rec build_refns (ls:world list) =
+            match ls with
+            | [] -> Some Map.empty
+            | w :: tl ->
+                let ro = try (e.Eval eval_gam (eval_env w) t).TryRefn with _ -> None
+                if ro.IsNone then None
+                else
+                    match build_refns tl with
+                    | None -> None
+                    | Some m -> Some (m.Add(w, ro.Value))
+        match build_refns sequ.GoalRefns.Keys with
+        | None -> None
+        | Some rs -> if not (rs.ContainsAllCtors(t)) then None
+                     else Some (e, {name=x;t=t;rs=rs;about=if decIn.IsNone then AIUninteresting
+                                                           else AIDecIn decIn.Value }, t, rs)
+
+
+    let exprs = lib_ctx.Value
+                 |> Seq.ofList
+                 |> Seq.collect (fun sk -> (generate sequ info depth sk)
+                                            .map(fun e -> (e, sk.Name, sk.Type, sk.DecIn)))
+    let exprs_list = Seq.toList exprs
+
+
+    let wordToMatch = "div2 n1"
+    let target_expr = List.filter(fun x -> x.ToString().Contains(wordToMatch)) exprs_list
+    target_expr.map(can_solve).somes()

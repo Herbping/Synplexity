@@ -105,7 +105,7 @@ let private SynthesizeWithBound(name:string, r:refn, t:typ, is_rec:id option,
     let jit = sampling=SJit
     let stopwatch = System.Diagnostics.Stopwatch.StartNew()
     let run = async { return SynthDriver.Synthesize(seq, is_rec, enum_strategy, jit, verbose) }
-    let soln = Async.RunSynchronously(Async.AwaitTimeout(run, 100000))
+    let soln = Async.RunSynchronously(Async.AwaitTimeout(run, 600000))
     //let soln = Some (SynthDriver.Synthesize(seq, is_rec, enum_strategy, jit, verbose))
     stopwatch.Stop()
 

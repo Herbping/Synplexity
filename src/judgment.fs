@@ -41,6 +41,7 @@ and private base_judgment_type = {
     solved    : list<expr>
     matches   : list<match_entry>
     last_scrut_size : int
+    allow_ctors : bool
 }
 
 // The description of a match entry.
@@ -197,6 +198,15 @@ and public judgment private(rep : judgment_rep) =
             let seq'       = this.Rep.seq.SetGoalType(t2)
                                          .SetGoalRefns(rf2)
                                          .AddLeft([x_info])
+            let (_, _, _, rfrec_ori) = SampleJit.generateDiv2(seq').Head
+
+            let rfrec_ori = rfrec_ori.map (fun _ x-> rf2.[rf1.filter(fun k v-> v=x ).Keys.Head])
+            
+
+            let div2X = "subproblem"
+            let rfrec_without_zero = rfrec_ori.Remove(rfrec_ori.FirstKey)
+            let div2X_info = {name=div2X; t=t1; rs=rfrec_ori; about=AIUninteresting}
+            let seq' = seq'.AddLeft([div2X_info])
 
             // Create the synthesis subproblem and rule.  We can't be at the top level anymore.
             let subproblem = this.Child(seq=seq', depth=this.Rep.depth - 1)
@@ -286,8 +296,8 @@ and public judgment private(rep : judgment_rep) =
     // Set the synthesis rule properly for base type.
     member private this.SetBasePolyRule() : unit =
         // Only create constructors if we aren't decreasing.
-        let ctors = if this.GoalType.IsBase && this.Seq.DecIn.IsNone then this.SynthSumR() else []
-
+        let ctors = if this.GoalType.IsBase && this.Seq.DecIn.IsNone  then this.SynthSumR() else []
+        //let ctors = []
         // Expressions to be pulled from the context and used to solve the goal (SYNTH-CTX).
         // Ensure that all expressions are of the proper type and fit the goal refinements.
         // Ensure that we only pick expressions that are properly decreasing.
@@ -308,9 +318,19 @@ and public judgment private(rep : judgment_rep) =
 
         // Create the rule.
         // No expressions are currently in consideration or solved, so those values are empty lists.
-        this.Rep.rule <- JBase {ctors=ctors; off=off; m_off=m_off;
+        
+        this.Rep.rule <- JBase {ctors=[]; off=off; m_off=m_off;
                                 on=[]; m_on=[]; solved=[]; matches=[];
-                                last_scrut_size=0}
+                                last_scrut_size=0;allow_ctors = false}
+        if not ctors.IsEmpty then
+        let withoutCtors =  this.Copy()
+        let withCtors =  this.Copy()
+        withCtors.Rep.rule <- JBase {ctors=ctors; off=off; m_off=m_off;
+        on=[]; m_on=[]; solved=[]; matches=[];
+        last_scrut_size=0;allow_ctors = false}
+        
+        this.Rep.rule <- JOr([ withoutCtors; withCtors])
+        
 
     member private this.Refine() =
         // Refine in a type-directed manner.  Everything requires depth.
@@ -477,7 +497,8 @@ and public judgment private(rep : judgment_rep) =
         // SYNTH-CTX (VARIABLES, PROJECTION, AND APPLICATION).
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         let (off', on', solved') = advance_elims this.Rep.depth b.off b.on
-        let solved' = solved'.map(fun sk -> sk.Body) @ b.solved @ (Seq.toList from_library)
+        let lib_list = Seq.toList from_library
+        let solved' = solved'.map(fun sk -> sk.Body) @ b.solved @ lib_list
 
         //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         // SYNTH-SUM-L (MATCH STATEMENTS).
@@ -492,12 +513,13 @@ and public judgment private(rep : judgment_rep) =
         // Create match statement problems for new scrutinees.
         let make_match (sk:skeleton) = this.SynthSumL(sk.Body, sk.Info, sk.GoalType, sk.GoalRefns)
         let matches' = b.matches @ scruts.map(make_match).somes() @ from_lib
+        let matches' = List.filter(fun x -> not (x.scrut.ToString().Contains("div2") ||x.scrut.ToString().Contains("subp") || x.scrut.ToString().Contains("double") || x.scrut.ToString().Contains("square"))) matches'
         matches'.iter(fun mtch -> mtch.branches.iter(judgment.AdvanceFn))
 
         // Finish the update.
         {ctors = b.ctors; last_scrut_size=scrut_cap;
          on   =   on';   off   = off'; solved  = solved'
-         m_on = m_on'; m_off = m_off'; matches = matches'}
+         m_on = m_on'; m_off = m_off'; matches = matches'; allow_ctors = b.allow_ctors}
                 
     static member private AdvanceFn(j:judgment) = j.Advance()
     member public this.Advance() : unit =
@@ -588,7 +610,7 @@ and public judgment private(rep : judgment_rep) =
                 // Solve constructors and elimination forms.
                 this.Rep.rule <- JBase {off=b.off; on=b.on; solved=[];
                                         m_off=b.m_off; m_on=b.m_on; matches=matches';
-                                        ctors=b.ctors; last_scrut_size=b.last_scrut_size}
+                                        ctors=b.ctors; last_scrut_size=b.last_scrut_size; allow_ctors = b.allow_ctors}
                 matches_out.append(Seq.collect judgment.ReapLazyFn b.ctors)
                            .append(Seq.ofList b.solved)
         let out = Seq.cache out
