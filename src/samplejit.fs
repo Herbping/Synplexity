@@ -55,7 +55,7 @@ let public Solve(sequ:sequent, depth:int) =
 
     let exprs = lib_ctx.Value.filter(fun sk -> sk.Type = sequ.GoalType)
                 |> Seq.ofList |> Seq.collect (generate sequ info depth)
-    let exprs = exprs.filter(fun x-> not (x.ToString().Contains("f1") ||x.ToString().Contains("div2") || x.ToString().Contains("add") || x.ToString().Contains("mult") || x.ToString().Contains("S") || x.ToString().Contains("Z")))
+    let exprs = exprs.filter(fun x-> not (x.ToString().Contains("f1") ||x.ToString().Contains("div2")  || x.ToString().Contains("S") || x.ToString().Contains("Z")))
     let exprs_list = Seq.toList exprs
     let exprs = exprs.filter(can_solve)
     let exprs_list = Seq.toList exprs
