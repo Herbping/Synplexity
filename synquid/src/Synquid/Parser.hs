@@ -128,8 +128,8 @@ parseConstructorSig = do
 
 parseMeasureConstantArgs :: Parser MeasureDefaults
 parseMeasureConstantArgs = many argWithName
-  where 
-    argWithName = do 
+  where
+    argWithName = do
       name <- parseIdentifier
       reservedOp ":"
       sort <- parseSort
@@ -184,8 +184,26 @@ parseInlineDecl = do
 parseFuncDeclOrGoal :: Parser BareDeclaration
 parseFuncDeclOrGoal = do
   funcName <- parseIdentifier
-  (reservedOp "::" >> FuncDecl funcName <$> parseSchema) <|>
-    (reservedOp "=" >> SynthesisGoal funcName <$> parseImpl)
+  (reservedOp "|*|" >> FuncComplexityDecl funcName <$> parseRSchemaComplexity) <|>
+    (reservedOp "::" >> FuncDecl funcName <$> parseSchema) <|>
+      (reservedOp "=" >> SynthesisGoal funcName <$> parseImpl)
+
+parseRSchemaComplexity :: Parser RSchemaComplexity
+parseRSchemaComplexity = do
+  complexity <- parseComplexityAnnotation
+  reservedOp "::" >> RSComp complexity <$> parseSchema
+
+
+parseComplexityAnnotation :: Parser ComplexityAnnotation
+parseComplexityAnnotation = do
+  reservedOp "("
+  pow <- read <$> many1 digit
+  reservedOp ","
+  logPow <- read <$> many1 digit
+  reservedOp ","
+  constant <- read <$> many1 digit
+  reservedOp ")"
+  return $ Complexity pow logPow constant
 
 {- Types -}
 

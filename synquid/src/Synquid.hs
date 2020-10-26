@@ -28,6 +28,7 @@ import Data.Map ((!))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe (mapMaybe)
+import Data.Dynamic
 
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import Text.PrettyPrint.ANSI.Leijen (fill, column)
@@ -228,7 +229,11 @@ runOnFile :: SynquidParams -> ExplorerParams -> HornSolverParams
                            -> String -> [String] -> IO ()
 runOnFile synquidParams explorerParams solverParams file libs = do
   declsByFile <- parseFromFiles (libs ++ [file])
+
   let decls = concat $ map snd declsByFile
+  -- let declsString = declsByFile
+  -- print (dynTypeRep (toDyn declsString))
+  -- print (dynTypeRep (toDyn decls))
   case resolveDecls decls of
     Left resolutionError -> (pdoc $ pretty resolutionError) >> pdoc empty >> exitFailure
     Right (goals, cquals, tquals) -> when (not $ resolveOnly synquidParams) $ do

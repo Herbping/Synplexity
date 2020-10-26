@@ -157,7 +157,7 @@ fmlToUProgram (Ite gf f1 f2) = Program (PIf gp p1 p2) AnyT
     gp = fmlToUProgram gf
     p1 = fmlToUProgram f1
     p2 = fmlToUProgram f2
-fmlToUProgram (Cons _ x fs) = curriedApp fn fs 
+fmlToUProgram (Cons _ x fs) = curriedApp fn fs
   where
     fn = Program (PSymbol x) AnyT
     curriedApp :: RProgram -> [Formula] -> RProgram
@@ -216,10 +216,21 @@ type ArgMap = Map Id [Set Formula] -- All possible constant arguments of measure
 
 {- Evaluation environment -}
 
+type Power = Integer
+type LogPower = Integer
+type Constant = Integer
+
+data ComplexityAnnotation = Complexity Power LogPower Constant
+  deriving (Show, Eq)
+
+data RSchemaComplexity = RSComp ComplexityAnnotation RSchema
+  deriving (Show, Eq)
+
 -- | Typing environment
 data Environment = Environment {
   -- | Variable part:
   _symbols :: Map Int (Map Id RSchema),    -- ^ Variables and constants (with their refinement types), indexed by arity
+  _symbolsComplexity :: Map Int (Map Id RSchemaComplexity),    -- ^ Variables and constants (with their refinement types), indexed by arity
   _boundTypeVars :: [Id],                  -- ^ Bound type variables
   _boundPredicates :: [PredSig],           -- ^ Argument sorts of bound abstract refinements
   _assumptions :: Set Formula,             -- ^ Unknown assumptions
@@ -247,6 +258,7 @@ instance Ord Environment where
 -- | Empty environment
 emptyEnv = Environment {
   _symbols = Map.empty,
+  _symbolsComplexity = Map.empty,
   _boundTypeVars = [],
   _boundPredicates = [],
   _assumptions = Set.empty,
@@ -264,10 +276,15 @@ emptyEnv = Environment {
 
 -- | 'symbolsOfArity' @n env@: all symbols of arity @n@ in @env@
 symbolsOfArity n env = Map.findWithDefault Map.empty n (env ^. symbols)
+symbolsComplexityOfArity n env = Map.findWithDefault Map.empty n (env ^. symbolsComplexity)
 
 -- | All symbols in an environment
 allSymbols :: Environment -> Map Id RSchema
 allSymbols env = Map.unions $ Map.elems (env ^. symbols)
+
+-- | All symbolsComplexity in an environment
+allSymbolsComplexity :: Environment -> Map Id RSchemaComplexity
+allSymbolsComplexity env = Map.unions $ Map.elems (env ^. symbolsComplexity)
 
 -- | 'lookupSymbol' @name env@ : type of symbol @name@ in @env@, including built-in constants
 lookupSymbol :: Id -> Int -> Bool -> Environment -> Maybe RSchema
@@ -285,6 +302,9 @@ lookupSymbol name a hasSet env
   where
     isBinary = a == 2 && (name `elem` Map.elems binOpTokens)
     asInt = asInteger name
+
+lookupSymbolComplexity :: Id -> Int -> Bool -> Environment -> Maybe RSchemaComplexity
+lookupSymbolComplexity name a hasSet env = Map.lookup name (allSymbolsComplexity env)
 
 symbolAsFormula :: Environment -> Id -> RType -> Formula
 symbolAsFormula _ name t | arity t > 0
@@ -343,6 +363,16 @@ addPolyVariable name sch e =  let n = arity (toMonotype sch) in (symbols %~ Map.
     n = arity (toMonotype sch)
     en' = Map.keys $ allSymbols ((symbols %~ Map.insertWith Map.union n (Map.singleton name sch)) e)
 
+
+
+addPolyVariableComplexity :: Id -> RSchemaComplexity -> Environment -> Environment
+addPolyVariableComplexity name  (RSComp annotation sch) e =  let n = arity (toMonotype sch) in (symbolsComplexity %~ Map.insertWith Map.union n (Map.singleton name  (RSComp annotation sch))) e
+  where
+    syms = unwords $ Map.keys $ allSymbolsComplexity e
+    en = Map.keys $ allSymbolsComplexity e
+    n = arity (toMonotype sch)
+    en' = Map.keys $ allSymbolsComplexity ((symbolsComplexity %~ Map.insertWith Map.union n (Map.singleton name  (RSComp annotation sch))) e)
+
 -- | 'addConstant' @name t env@ : add type binding @name@ :: Monotype @t@ to @env@
 addConstant :: Id -> RType -> Environment -> Environment
 addConstant name t = addPolyConstant name (Monotype t)
@@ -351,11 +381,16 @@ addConstant name t = addPolyConstant name (Monotype t)
 addPolyConstant :: Id -> RSchema -> Environment -> Environment
 addPolyConstant name sch = addPolyVariable name sch . (constants %~ Set.insert name)
 
+addPolyConstantComplexity :: Id -> RSchemaComplexity -> Environment -> Environment
+addPolyConstantComplexity name sch = addPolyVariableComplexity name sch . (constants %~ Set.insert name)
+
 addLetBound :: Id -> RType -> Environment -> Environment
 addLetBound name t = addVariable name t . (letBound %~ Set.insert name)
 
 addUnresolvedConstant :: Id -> RSchema -> Environment -> Environment
 addUnresolvedConstant name sch = unresolvedConstants %~ Map.insert name sch
+
+
 
 removeVariable :: Id -> Environment -> Environment
 removeVariable name env = case Map.lookup name (allSymbols env) of
@@ -484,6 +519,7 @@ constructorName (ConstructorSig name _) = name
 data BareDeclaration =
   TypeDecl Id [Id] RType |                                  -- ^ Type name, variables, and definition
   FuncDecl Id RSchema |                                     -- ^ Function name and signature
+  FuncComplexityDecl Id RSchemaComplexity |      -- ^ Function name, signature and compleixty annotation
   DataDecl Id [Id] [(PredSig, Bool)] [ConstructorSig] |     -- ^ Datatype name, type parameters, predicate parameters, and constructor definitions
   MeasureDecl Id Sort Sort Formula [MeasureCase] MeasureDefaults Bool |     -- ^ Measure name, input sort, output sort, postcondition, definition cases, and whether this is a termination metric
   PredDecl PredSig |                                        -- ^ Module-level predicate
@@ -575,13 +611,13 @@ predPolymorphic (x:xs) ps name inSorts outSort f = ForallP x (predPolymorphic xs
 
 -- Generate non-polymorphic core of schema
 genSkeleton :: Id -> [Id] -> [(Maybe Id, Sort)] -> Sort -> Formula -> SchemaSkeleton Formula
-genSkeleton name preds inSorts outSort post = Monotype $ uncurry 0 inSorts 
+genSkeleton name preds inSorts outSort post = Monotype $ uncurry 0 inSorts
   where
     uncurry n (x:xs) = FunctionT (fromMaybe ("arg" ++ show n) (fst x)) (ScalarT (toType (snd x)) ftrue) (uncurry (n + 1) xs)
     uncurry _ [] = ScalarT outType post
     toType s = case s of
       (DataS name args) -> DatatypeT name (map fromSort args) pforms
-      _ -> (baseTypeOf . fromSort) s 
+      _ -> (baseTypeOf . fromSort) s
     outType = (baseTypeOf . fromSort) outSort
     pforms = fmap predform preds
     predform x = Pred AnyS x []

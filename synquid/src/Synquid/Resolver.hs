@@ -112,6 +112,7 @@ resolveDeclaration (TypeDecl typeName typeVars typeBody) = do
     else throwResError (text "Type variable(s)" <+> hsep (map text $ Set.toList extraTypeVars) <+>
               text "in the definition of type synonym" <+> text typeName <+> text "are undefined")
 resolveDeclaration (FuncDecl funcName typeSchema) = addNewSignature funcName typeSchema
+resolveDeclaration (FuncComplexityDecl funcName typeComplexitySchema) = addNewComplexitySignature funcName typeComplexitySchema
 resolveDeclaration d@(DataDecl dtName tParams pVarParams ctors) = do
   let
     (pParams, pVariances) = unzip pVarParams
@@ -157,14 +158,16 @@ resolveDeclaration (PredDecl (PredSig name argSorts resSort)) = do
   mapM_ resolveSort (resSort : argSorts)
   env <- use environment
   let argSorts' = fmap (\x -> (Nothing, x)) argSorts
-  addNewSignature name (generateSchema env name argSorts' resSort ftrue) 
+  addNewSignature name (generateSchema env name argSorts' resSort ftrue)
   environment %= addGlobalPredicate name resSort argSorts
 resolveDeclaration (SynthesisGoal name impl) = do
   syms <- uses environment allSymbols
-  pos <- use currentPosition
-  if Map.member name syms
+  symsComplexity <- uses environment allSymbolsComplexity
+  pos <-  use currentPosition
+  if (Map.member name syms) || (Map.member name symsComplexity)
     then goals %= (++ [(name, (normalizeProgram impl, pos))])
     else throwResError (text "No specification found for synthesis goal" <+> text name)
+
 resolveDeclaration (QualifierDecl quals) = mapM_ resolveQualifier quals
   where
     resolveQualifier q = if Set.member valueVarName (Set.map varName $ varsOf q)
@@ -187,6 +190,7 @@ resolveDeclaration (InlineDecl name args body) =
         else inlines %= Map.insert name (args, body))
 
 resolveSignatures :: BareDeclaration -> Resolver ()
+
 resolveSignatures (FuncDecl name _)  = do
   sch <- uses environment ((Map.! name) . allSymbols)
   sch' <- resolveSchema sch
@@ -207,7 +211,7 @@ resolveSignatures (DataDecl dtName tParams pParams ctors) = mapM_ resolveConstru
 resolveSignatures (MeasureDecl measureName _ _ post defCases args _) = do
   sorts <- uses (environment . globalPredicates) (Map.! measureName)
   let (outSort : mArgs) = sorts
-  case last mArgs of 
+  case last mArgs of
     inSort@(DataS dtName sArgs) -> do
       datatype <- uses (environment . datatypes) (Map.! dtName)
       post' <- resolveTypeRefinement outSort post
@@ -249,7 +253,7 @@ resolveSignatures (MeasureDecl measureName _ _ post defCases args _) = do
               fml' <- withLocalEnv $ do
                 environment  . boundTypeVars .= boundVarsOf consSch
                 environment %= addAllVariables ctorParams
-                environment %= addAllVariables (fmap snd cSub) 
+                environment %= addAllVariables (fmap snd cSub)
                 resolveTypeRefinement (toSort $ baseTypeOf $ lastType consT) fml
               return $ MeasureCase ctorName (map varName ctorParams) fml'
 resolveSignatures (SynthesisGoal name impl) = do
@@ -258,25 +262,25 @@ resolveSignatures (SynthesisGoal name impl) = do
 resolveSignatures _ = return ()
 
 -- 'checkMeasureCase' @measure constArgs mCase@ : ensure that measure @name@ is called recursively with the same argumenst @constArgs@
-checkMeasureCase :: Id -> [(Id, Sort)] -> Formula -> Resolver () 
-checkMeasureCase measure [] _ = return () 
+checkMeasureCase :: Id -> [(Id, Sort)] -> Formula -> Resolver ()
+checkMeasureCase measure [] _ = return ()
 checkMeasureCase measure constArgs (Unary _ f) = checkMeasureCase measure constArgs f
-checkMeasureCase measure constArgs (Binary _ f g) = do 
-  checkMeasureCase measure constArgs f 
+checkMeasureCase measure constArgs (Binary _ f g) = do
+  checkMeasureCase measure constArgs f
   checkMeasureCase measure constArgs g
-checkMeasureCase measure constArgs (Ite f g h) = do 
-  checkMeasureCase measure constArgs f 
+checkMeasureCase measure constArgs (Ite f g h) = do
+  checkMeasureCase measure constArgs f
   checkMeasureCase measure constArgs g
   checkMeasureCase measure constArgs h
-checkMeasureCase measure constArgs (Cons _ _ fs) = 
+checkMeasureCase measure constArgs (Cons _ _ fs) =
   mapM_ (checkMeasureCase measure constArgs) fs
 checkMeasureCase measure constArgs p@(Pred s x args) =
   if x == measure
-    then do 
+    then do
       let args' = take numArgs args
       let cArgs' = fmap (\(x, _) -> Var AnyS x) constArgs
-      when (args' /= cArgs') $ throwResError $ text "Constant arguments to measure" <+> text measure <+> text "must not change in recursive call" <+> pretty p 
-    else mapM_ (checkMeasureCase measure constArgs) args 
+      when (args' /= cArgs') $ throwResError $ text "Constant arguments to measure" <+> text measure <+> text "must not change in recursive call" <+> pretty p
+    else mapM_ (checkMeasureCase measure constArgs) args
   where
     numArgs = length constArgs
 checkMeasureCase _ _ _ = return ()
@@ -646,6 +650,11 @@ addNewSignature name sch = do
   environment %= addPolyConstant name sch
   environment %= addUnresolvedConstant name sch
 
+addNewComplexitySignature name (RSComp (Complexity p logP constant) sch) = do
+  ifM (Set.member name <$> use (environment . constants)) (throwResError $ text "Duplicate declaration of function" <+> text name) (return ())
+  environment %= addPolyConstantComplexity name (RSComp (Complexity p logP constant) sch)
+  environment %= addUnresolvedConstant name sch
+
 substituteTypeSynonym name tArgs = do
   tss <- use $ environment . typeSynonyms
   case Map.lookup name tss of
@@ -663,8 +672,8 @@ freshSort = do
 
 -- | 'freshId' @p s@ : fresh var with prefix @p@ of sort @s@
 freshId :: String -> Sort -> Resolver Formula
-freshId p s = do 
-  i <- use idCount 
+freshId p s = do
+  i <- use idCount
   idCount %= (+ 1)
   return $ Var s (p ++ show i)
 

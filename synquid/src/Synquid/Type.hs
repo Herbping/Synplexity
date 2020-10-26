@@ -141,6 +141,7 @@ toMonotype (Monotype t) = t
 toMonotype (ForallT _ t) = toMonotype t
 toMonotype (ForallP _ t) = toMonotype t
 
+
 boundVarsOf :: SchemaSkeleton r -> [Id]
 boundVarsOf (ForallT a sch) = a : boundVarsOf sch
 boundVarsOf _ = []
@@ -309,7 +310,7 @@ typeApplySolution _ AnyT = AnyT
 typeFromSchema :: RSchema -> RType
 typeFromSchema (Monotype t) = t
 typeFromSchema (ForallT _ t) = typeFromSchema t
-typeFromSchema (ForallP _ t) = typeFromSchema t 
+typeFromSchema (ForallP _ t) = typeFromSchema t
 
 allRefinementsOf :: RSchema -> [Formula]
 allRefinementsOf sch = allRefinementsOf' $ typeFromSchema sch

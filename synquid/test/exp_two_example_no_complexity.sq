@@ -1,0 +1,12 @@
+mult :: x: Int-> {Int | _v == (x * 2)}
+dec :: x:Int -> {Int | _v == x - 1}
+zero :: {Int | _v == 0}
+one :: {Int | _v == 1}
+two :: {Int | _v == 2}
+
+eq :: x: Int -> y: Int -> {Bool | _v == (x == y)}
+
+
+exp_two :: n: Int -> {Int | (!(2 == n)||(_v == 4)) && (!(3 == n)||(_v == 8)) && (!(1 == n)||(_v == 2))&& (!(4 == n)||(_v == 16))}
+
+exp_two = ??
