@@ -1,39 +1,42 @@
-{-# LANGUAGE DeriveDataTypeable, StandaloneDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Main where
 
-import Synquid.Logic
-import Synquid.Type
-import Synquid.Program
-import Synquid.Error
-import Synquid.Pretty
-import Synquid.Parser
-import Synquid.Resolver (resolveDecls)
-import Synquid.SolverMonad
-import Synquid.HornSolver
-import Synquid.TypeConstraintSolver
-import Synquid.Explorer
-import Synquid.Synthesizer
-import Synquid.HtmlOutput
+import           Synquid.Error
+import           Synquid.Explorer
+import           Synquid.HornSolver
+import           Synquid.HtmlOutput
+import           Synquid.Logic
+import           Synquid.Parser
+import           Synquid.Pretty
+import           Synquid.Program
+import           Synquid.Resolver             (resolveDecls)
+import           Synquid.SolverMonad
+import           Synquid.Synthesizer
+import           Synquid.Type
+import           Synquid.TypeConstraintSolver
 
-import Control.Monad
-import Control.Lens ((^.))
-import System.Exit
-import System.Console.CmdArgs
-import System.Console.ANSI
-import System.FilePath
-import Data.Char
-import Data.Time.Calendar
-import Data.Map ((!))
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import Data.Maybe (mapMaybe)
-import Data.Dynamic
+import           Control.Lens                 ((^.))
+import           Control.Monad
+import           Data.Char
+import           Data.Dynamic
+import           Data.Map                     ((!))
+import qualified Data.Map                     as Map
+import           Data.Maybe                   (mapMaybe)
+import qualified Data.Set                     as Set
+import           Data.Time.Calendar
+import           Debug.Trace
+import           System.Console.ANSI
+import           System.Console.CmdArgs
+import           System.Exit
+import           System.FilePath
 
+
+import           Text.PrettyPrint.ANSI.Leijen (column, fill)
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
-import Text.PrettyPrint.ANSI.Leijen (fill, column)
 
-import Data.List.Split
+import           Data.List.Split
 
 programName = "synquid"
 versionName = "0.4"
@@ -89,39 +92,37 @@ deriving instance Show FixpointStrategy
 {-# ANN module "HLint: ignore Redundant bracket" #-}
 {-# ANN module "HLint: ignore" #-}
 
-data CommandLineArgs
-    = Synthesis {
-        -- | Input
-        file :: String,
-        libs :: [String],
-        only :: Maybe String,
-        -- | Explorer params
-        app_max :: Int,
-        scrutinee_max :: Int,
-        match_max :: Int,
-        aux_max :: Int,
-        fix :: FixpointStrategy,
-        generalize_preds :: Bool,
-        explicit_match :: Bool,
-        unfold_locals :: Bool,
-        partial :: Bool,
-        incremental :: Bool,
-        consistency :: Bool,
-        memoize :: Bool,
-        symmetry :: Bool,
-        -- | Solver params
-        lfp :: Bool,
-        bfs_solver :: Bool,
-        -- | Output
-        out_file :: Maybe String,
-        out_module :: Maybe String,
-        output :: OutputFormat,
-        resolve :: Bool,
-        print_spec :: Bool,
-        print_stats :: Bool,
-        log_ :: Int
-      }
-  deriving (Data, Typeable, Show, Eq)
+data CommandLineArgs = Synthesis
+    { file             :: String
+    , libs             :: [String]
+    , only             :: Maybe String
+    -- | Explorer params
+    , app_max          :: Int
+    , scrutinee_max    :: Int
+    , match_max        :: Int
+    , aux_max          :: Int
+    , fix              :: FixpointStrategy
+    , generalize_preds :: Bool
+    , explicit_match   :: Bool
+    , unfold_locals    :: Bool
+    , partial          :: Bool
+    , incremental      :: Bool
+    , consistency      :: Bool
+    , memoize          :: Bool
+    , symmetry         :: Bool
+    -- | Solver params
+    , lfp              :: Bool
+    , bfs_solver       :: Bool
+    -- | Output
+    , out_file         :: Maybe String
+    , out_module       :: Maybe String
+    , output           :: OutputFormat
+    , resolve          :: Bool
+    , print_spec       :: Bool
+    , print_stats      :: Bool
+    , log_             :: Int
+    }
+    deriving (Data, Typeable, Show, Eq)
 
 synt = Synthesis {
   file                = ""              &= typFile &= argPos 0,
@@ -194,26 +195,30 @@ defaultHornSolverParams = HornSolverParams {
 }
 
 -- | Output format
-data OutputFormat = Plain -- ^ Plain text
-  | Ansi -- ^ Text with ANSI-terminal special characters
-  | Html -- ^ HTML
-  deriving (Typeable, Data, Eq, Show)
+data OutputFormat = Plain
+    | Ansi
+    | Html
+    deriving (Typeable, Data, Eq, Show)
 
 -- | 'printDoc' @format doc@ : print @doc@ to the console using @format@
 printDoc :: OutputFormat -> Doc -> IO()
 printDoc Plain doc = putDoc (plain doc) >> putStr "\n"
-printDoc Ansi doc = putDoc doc >> putStr "\n"
-printDoc Html doc = putStr (showDocHtml (renderPretty 0.4 100 doc))
+printDoc Ansi doc  = putDoc doc >> putStr "\n"
+printDoc Html doc  = putStr (showDocHtml (renderPretty 0.4 100 doc))
 
 -- | Parameters of the synthesis
-data SynquidParams = SynquidParams {
-  goalFilter :: Maybe [String],
-  outputFormat :: OutputFormat,                -- ^ Output format
-  resolveOnly :: Bool,                         -- ^ Stop after resolution step
-  verifyOnly :: Bool,
-  showSpec :: Bool,                            -- ^ Print specification for every synthesis goal
-  showStats :: Bool                            -- ^ Print specification and solution size
-}
+data SynquidParams = SynquidParams
+    { goalFilter   :: Maybe [String]
+    -- ^ Output format
+    , outputFormat :: OutputFormat -- ^ Output format
+    -- ^ Stop after resolution step
+    , resolveOnly  :: Bool -- ^ Stop after resolution step
+    , verifyOnly   :: Bool
+    -- ^ Print specification for every synthesis goal
+    , showSpec     :: Bool -- ^ Print specification for every synthesis goal
+    -- ^ Print specification and solution size
+    , showStats    :: Bool -- ^ Print specification and solution size
+    }
 
 defaultSynquidParams = SynquidParams {
   goalFilter = Nothing,
@@ -237,7 +242,7 @@ runOnFile synquidParams explorerParams solverParams file libs = do
   case resolveDecls decls of
     Left resolutionError -> (pdoc $ pretty resolutionError) >> pdoc empty >> exitFailure
     Right (goals, cquals, tquals) -> when (not $ resolveOnly synquidParams) $ do
-      results <- mapM (synthesizeGoal cquals tquals) (requested goals)
+      results <- (mapM (synthesizeGoal cquals tquals) (requested goals))
       when (not (null results) && showStats synquidParams) $ printStats results declsByFile
   where
     parseFromFiles [] = return []
@@ -250,7 +255,7 @@ runOnFile synquidParams explorerParams solverParams file libs = do
           ((file, decls') :) <$> parseFromFiles rest
     requested goals = case goalFilter synquidParams of
       Just filt -> filter (\goal -> gName goal `elem` filt) goals
-      _ -> goals
+      _         -> goals
     pdoc = printDoc (outputFormat synquidParams)
     synthesizeGoal cquals tquals goal = do
       when ((gSynthesize goal) && (showSpec synquidParams)) $ pdoc (prettySpec goal)

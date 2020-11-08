@@ -15,7 +15,6 @@ import Synquid.Explorer
 import Synquid.TypeChecker
 
 import Data.Maybe
-import Data.Either
 import Data.List
 import qualified Data.Set as Set
 import Data.Set (Set)
@@ -82,7 +81,9 @@ synthesize explorerParams solverParams goal cquals tquals = evalZ3State $ evalFi
 
     components = componentsIn $ gEnvironment goal
     componentsIn = map toMonotype . Map.elems . allSymbols
-    syntGoal = toMonotype $ gSpec goal
+    syntGoal = toMonotype $ case (gSpec goal) of
+                            Left sch -> sch
+                            Right (RSComp annotation sch) -> sch
 
 {- Qualifier Generators -}
 

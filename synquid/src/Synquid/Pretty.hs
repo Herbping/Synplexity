@@ -164,7 +164,7 @@ power Cons {} = 9
 power Unary {} = 8
 power (Binary op _ _)
   | op `elem` [Times, Intersect] = 7
-  | op `elem` [Plus, Minus, Union, Diff] = 6
+  | op `elem` [Plus, Minus, Union, Diff, Mod] = 6
   | op `elem` [Eq, Neq, Lt, Le, Gt, Ge, Member, Subset] = 5
   | op `elem` [And, Or] = 4
   | op `elem` [Implies] = 3
@@ -361,7 +361,7 @@ instance Pretty Candidate where
   pretty (Candidate sol valids invalids label) = text label <> text ":" <+> pretty sol <+> parens (pretty (Set.size valids) <+> pretty (Set.size invalids))
 
 instance Pretty Goal where
-  pretty (Goal name env spec impl depth _ _) = pretty env <+> operator "|-" <+> text name <+> operator "::" <+> pretty spec $+$ text name <+> operator "=" <+> pretty impl $+$ parens (text "depth:" <+> pretty depth)
+  pretty (Goal name env (Left spec) impl depth _ _) = pretty env <+> operator "|-" <+> text name <+> operator "::" <+> pretty spec $+$ text name <+> operator "=" <+> pretty impl $+$ parens (text "depth:" <+> pretty depth)
 
 prettySpec g@(Goal name _ _ _ _ _ _) = text name <+> operator "::" <+> pretty (unresolvedSpec g)
 prettySolution (Goal name _ _ _ _ _ _) prog = text name <+> operator "=" </> pretty prog
@@ -390,10 +390,10 @@ instance Pretty BareDeclaration where
   pretty (InlineDecl name args body) = keyword "inline" <+> text name <+> hsep (map text args) <+> operator "=" <+> pretty body
 
 prettyMeasureDefaults args = punctuateEnd (operator "->") $ map formatPair args
-  where 
-    formatPair (v, s) = text v <+> operator ":" <+> pretty s 
-    punctuateEnd op [] = empty 
-    punctuateEnd op [d] = d <+> op 
+  where
+    formatPair (v, s) = text v <+> operator ":" <+> pretty s
+    punctuateEnd op [] = empty
+    punctuateEnd op [d] = d <+> op
     punctuateEnd op (d:ds) = d <+> op <+> punctuateEnd op ds
 
 instance Pretty a => Pretty (Pos a) where

@@ -221,10 +221,10 @@ type LogPower = Integer
 type Constant = Integer
 
 data ComplexityAnnotation = Complexity Power LogPower Constant
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 data RSchemaComplexity = RSComp ComplexityAnnotation RSchema
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 -- | Typing environment
 data Environment = Environment {
@@ -325,6 +325,7 @@ unOpType Not       = Monotype $ FunctionT "x" boolAll (bool (valBool |=| fnot (b
 binOpType Times     = Monotype $ FunctionT "x" intAll (FunctionT "y" intAll (int (valInt |=| intVar "x" |*| intVar "y")))
 binOpType Plus      = Monotype $ FunctionT "x" intAll (FunctionT "y" intAll (int (valInt |=| intVar "x" |+| intVar "y")))
 binOpType Minus     = Monotype $ FunctionT "x" intAll (FunctionT "y" intAll (int (valInt |=| intVar "x" |-| intVar "y")))
+binOpType Mod       = Monotype $ FunctionT "x" intAll (FunctionT "y" intAll (int (valInt |=| intVar "x" |%| intVar "y")))
 binOpType Eq        = ForallT "a" $ Monotype $ FunctionT "x" (vartAll "a") (FunctionT "y" (vartAll "a") (bool (valBool |=| (vartVar "a" "x" |=| vartVar "a" "y"))))
 binOpType Neq       = ForallT "a" $ Monotype $ FunctionT "x" (vartAll "a") (FunctionT "y" (vartAll "a") (bool (valBool |=| (vartVar "a" "x" |/=| vartVar "a" "y"))))
 binOpType Lt        = ForallT "a" $ Monotype $ FunctionT "x" (vartAll "a") (FunctionT "y" (vartAll "a") (bool (valBool |=| (vartVar "a" "x" |<| vartVar "a" "y"))))
@@ -548,7 +549,7 @@ data Constraint = Subtype Environment RType RType Bool Id
 data Goal = Goal {
   gName :: Id,                  -- ^ Function name
   gEnvironment :: Environment,  -- ^ Enclosing environment
-  gSpec :: RSchema,             -- ^ Specification
+  gSpec :: Either RSchema RSchemaComplexity,             -- ^ Specification
   gImpl :: UProgram,            -- ^ Implementation template
   gDepth :: Int,                -- ^ Maximum level of auxiliary goal nesting allowed inside this goal
   gSourcePos :: SourcePos,      -- ^ Source Position,

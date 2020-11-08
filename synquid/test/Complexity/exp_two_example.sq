@@ -2,10 +2,10 @@ zero :: {Int | _v == 0}
 two :: {Int | _v == 2}
 one :: {Int | _v == 1}
 neg :: x: Int -> {Int | _v == -x}
-leq |*| (0,0,1) :: x: Int -> y: Int -> {Bool | _v == (x <= y)}
-plus |*| (0,0,1) :: x: Int -> y: Int -> {Int | _v == (x + y)}
-mult |*| (0,0,1) :: x: Int -> y: Int -> {Int | _v == (x * y)}
-neq |*| (0,0,1) :: x: Int -> y: Int -> {Bool | _v == (x != y)}
+leq  :: x: Int -> y: Int -> {Bool | _v == (x <= y)}
+plus  :: x: Int -> y: Int -> {Int | _v == (x + y)}
+mult :: x: Int -> y: Int -> {Int | _v == (x * y)}
+neq  :: x: Int -> y: Int -> {Bool | _v == (x != y)}
 
 exp_two |*| (0,1,0) :: n: Int -> {Int | (!(2 == n)||(_v == 4)) && (!(3 == n)||(_v == 8)) && (!(4 == n)||(_v == 16)) && (!(1 == n)||(_v == 2)) && (!(0 == n)||(_v == 1))}
 

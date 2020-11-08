@@ -13,6 +13,7 @@ import qualified Synquid.TypeConstraintSolver as TCSolver (freshId, freshVar)
 import Synquid.Util
 import Synquid.Pretty
 import Synquid.Tokens
+import Data.Either hiding (fromRight)
 
 import Data.Maybe
 import Data.List
@@ -116,10 +117,10 @@ data Reconstructor s = Reconstructor (Goal -> Explorer s RProgram)
 -- | 'runExplorer' @eParams tParams initTS go@ : execute exploration @go@ with explorer parameters @eParams@, typing parameters @tParams@ in typing state @initTS@
 runExplorer :: MonadHorn s => ExplorerParams -> TypingParams -> Reconstructor s -> TypingState -> Explorer s a -> s (Either ErrorMessage a)
 runExplorer eParams tParams topLevel initTS go = do
-  (ress, (PersistentState _ _ errs)) <- runStateT (observeManyT 1 $ runReaderT (evalStateT go initExplorerState) (eParams, tParams, topLevel)) (PersistentState Map.empty Map.empty [])
+  (ress, PersistentState _ _ errs) <- runStateT (observeManyT 1 $ runReaderT (evalStateT go initExplorerState) (eParams, tParams, topLevel)) (PersistentState Map.empty Map.empty [])
   case ress of
-    [] -> 
-      case errs of 
+    [] ->
+      case errs of
         [] -> return $ Left impossible
         (e:_) -> return $ Left e
     (res : _) -> return $ Right res
@@ -135,8 +136,8 @@ runExplorer eParams tParams topLevel initTS go = do
 -- (top-down phase of bidirectional typechecking)
 generateI :: MonadHorn s => Environment -> RType -> Explorer s RProgram
 generateI env t@(FunctionT x tArg tRes) = do
-  let ctx = \p -> Program (PFun x p) t
-  pBody <- inContext ctx $ generateI (unfoldAllVariables $ addVariable x tArg $ env) tRes
+  let ctx p = Program (PFun x p) t
+  pBody <- inContext ctx $ generateI (unfoldAllVariables $ addVariable x tArg  env) tRes
   return $ ctx pBody
 generateI env t@(ScalarT _ _) = do
   maEnabled <- asks . view $ _1 . abduceScrutinees -- Is match abduction enabled?
@@ -503,7 +504,7 @@ isPolyConstructor (Program (PSymbol name) t) = isTypeName name && (not . Set.nul
 
 enqueueGoal env typ impl depth = do
   g <- freshVar env "f"
-  auxGoals %= ((Goal g env (Monotype typ) impl depth noPos True) :)
+  auxGoals %= ((Goal g env (Left (Monotype typ)) impl depth noPos True) :)
   return $ Program (PSymbol g) typ
 
 {- Utility -}

@@ -29,7 +29,7 @@ import Debug.Trace
 -- return a type error if that is impossible
 reconstruct :: MonadHorn s => ExplorerParams -> TypingParams -> Goal -> s (Either ErrorMessage RProgram)
 reconstruct eParams tParams goal = do
-    initTS <- initTypingState (gEnvironment goal) (gSpec goal)
+    initTS <- initTypingState (gEnvironment goal) (fromLeft (gSpec goal))
     runExplorer (eParams { _sourcePos = gSourcePos goal }) tParams (Reconstructor reconstructTopLevel) initTS go
   where
     go = do
@@ -38,28 +38,29 @@ reconstruct eParams tParams goal = do
       runInSolver $ finalizeProgram p                                      -- Substitute all type/predicates variables and unknowns
 
 reconstructTopLevel :: MonadHorn s => Goal -> Explorer s RProgram
-reconstructTopLevel (Goal funName env (ForallT a sch) impl depth pos s) = reconstructTopLevel (Goal funName (addTypeVar a env) sch impl depth pos s)
-reconstructTopLevel (Goal funName env (ForallP sig sch) impl depth pos s) = reconstructTopLevel (Goal funName (addBoundPredicate sig env) sch impl depth pos s)
-reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT _ _ _)) impl depth _ synth) = local (set (_1 . auxDepth) depth) reconstructFix
+reconstructTopLevel (Goal funName env (Left (ForallT a sch)) impl depth pos s) = reconstructTopLevel (Goal funName (addTypeVar a env) (Left sch) impl depth pos s)
+reconstructTopLevel (Goal funName env (Left (ForallP sig sch)) impl depth pos s) = reconstructTopLevel (Goal funName (addBoundPredicate sig env) (Left sch) impl depth pos s)
+reconstructTopLevel (Goal funName env (Right (RSComp _ rsch)) impl depth pos synth) =  reconstructTopLevel (Goal funName env (Left rsch) impl depth pos synth)
+reconstructTopLevel (Goal funName env (Left (Monotype typ@(FunctionT _ _ _))) impl depth _ synth) =  local (set (_1 . auxDepth) depth) reconstructFix
   where
     reconstructFix = do
       let typ' = renameAsImpl (isBound env) impl typ
       recCalls <- runInSolver (currentAssignment typ') >>= recursiveCalls synth
-      polymorphic <- asks . view $ _1 . polyRecursion
-      predPolymorphic <- asks . view $ _1 . predPolyRecursion
-      let tvs = env ^. boundTypeVars
-      let pvs = env ^. boundPredicates
-      let predGeneralized sch = if predPolymorphic then foldr ForallP sch pvs else sch -- Version of @t'@ generalized in bound predicate variables of the enclosing function
+      polymorphic <- traceShow ("recCalls", recCalls) $ asks . view $ _1 . polyRecursion
+      predPolymorphic <- traceShow ("polymorphic", polymorphic) $ asks . view $ _1 . predPolyRecursion
+      let tvs = traceShow ("predPolymorphic", predPolymorphic) $  env ^. boundTypeVars
+      let pvs = traceShow ("tvs", tvs) $ env ^. boundPredicates
+      let predGeneralized sch =  traceShow ("pvs", pvs) $ if predPolymorphic then foldr ForallP sch pvs else sch -- Version of @t'@ generalized in bound predicate variables of the enclosing function
       let typeGeneralized sch = if polymorphic then foldr ForallT sch tvs else sch -- Version of @t'@ generalized in bound type variables of the enclosing function
       let env' = foldr (\(f, t) -> addPolyVariable f (typeGeneralized . predGeneralized . Monotype $ t) . (shapeConstraints %~ Map.insert f (shape typ'))) env recCalls
-      let ctx p = if null recCalls then p else Program (PFix (map fst recCalls) p) typ'
+      let ctx p =  if null recCalls then p else Program (PFix (map fst recCalls) p) typ'
       p <- inContext ctx  $ reconstructI env' typ' impl
       return $ ctx p
 
     -- | 'recursiveCalls' @t@: name-type pairs for recursive calls to a function with type @t@ (0 or 1)
     recursiveCalls False t = return [(funName, t)]
     recursiveCalls _ t = do
-      fixStrategy <- asks . view $ _1 . fixStrategy
+      fixStrategy <-traceShow ("t", t) asks . view $ _1 . fixStrategy
       case fixStrategy of
         AllArguments -> do recType <- fst <$> recursiveTypeTuple t ffalse; if recType == t then return [] else return [(funName, recType)]
         FirstArgument -> do recType <- recursiveTypeFirst t; if recType == t then return [] else return [(funName, recType)]
@@ -101,13 +102,13 @@ reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT _ _ _)) impl dept
     terminationRefinement argName (ScalarT dt@(DatatypeT name _ _) fml) = case env ^. datatypes . to (Map.! name) . wfMetric of
       Nothing -> Nothing
       Just mName -> let
-                      metric x = Pred IntS mName [x]
+                      metric x =  Pred IntS mName [x]
                       argSort = toSort dt
                     in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<| metric (Var argSort argName),
                               metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| metric (Var argSort argName))
     terminationRefinement _ _ = Nothing
 
-reconstructTopLevel (Goal _ env (Monotype t) impl depth _ _) = local (set (_1 . auxDepth) depth) $ reconstructI env t impl
+reconstructTopLevel (Goal _ env (Left (Monotype t)) impl depth _ _) = local (set (_1 . auxDepth) depth) $ reconstructI env t impl
 
 -- | 'reconstructI' @env t impl@ :: reconstruct unknown types and terms in a judgment @env@ |- @impl@ :: @t@ where @impl@ is a (possibly) introduction term
 -- (top-down phase of bidirectional reconstruction)
@@ -118,7 +119,7 @@ reconstructI env t (Program p t') = do
   reconstructI' env t'' p
 
 reconstructI' env t PErr = generateError env
-reconstructI' env t PHole = generateError env `mplus` generateI env t
+reconstructI' env t PHole =  generateError env `mplus` generateI env t
 reconstructI' env t (PLet x iDef@(Program (PFun _ _) _) iBody) = do -- lambda-let: remember and type-check on use
   lambdaLets %= Map.insert x (env, iDef)
   let ctx p = Program (PLet x uHole p) t
@@ -265,7 +266,7 @@ reconstructE' env typ (PApp iFun iArg) = do
                       impl <- etaExpand tArg f
                       _ <- enqueueGoal env tArg impl d
                       return ()
-          Just (env', def) -> auxGoals %= ((Goal f env' (Monotype tArg) def d noPos True) :) -- This is a locally defined function: add an aux goal with its body
+          Just (env', def) -> auxGoals %= ((Goal f env' (Left (Monotype tArg)) def d noPos True) :) -- This is a locally defined function: add an aux goal with its body
         return iArg
       _ -> enqueueGoal env tArg iArg d -- HO argument is an abstraction: enqueue a fresh goal
 

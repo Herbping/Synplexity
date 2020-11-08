@@ -22,7 +22,6 @@ import Data.List
 import qualified Data.Foldable as Foldable
 import qualified Data.Traversable as Traversable
 import Control.Arrow (first)
-
 import Debug.Trace
 
 {- Interface -}
@@ -38,7 +37,7 @@ data ResolverState = ResolverState {
   _sortConstraints :: [SortConstraint],
   _currentPosition :: SourcePos,
   _idCount :: Int
-}
+}deriving (Show)
 
 makeLenses ''ResolverState
 
@@ -61,7 +60,7 @@ resolveDecls declarations =
   case runExcept (execStateT go initResolverState) of
     Left msg -> Left msg
     Right st ->
-      Right (typecheckingGoals st ++ synthesisGoals st, st ^. condQualifiers, st ^. typeQualifiers)
+      Right ((typecheckingGoals st) ++ synthesisGoals st, st ^. condQualifiers, st ^. typeQualifiers)
   where
     go = do
       -- Pass 1: collect all declarations and resolve sorts, but do not resolve refinement types yet
@@ -72,13 +71,13 @@ resolveDecls declarations =
     setDecl = Pos noPos defaultSetType
     makeGoal synth env allNames allMutuals (name, (impl, pos)) =
       let
-        spec = allSymbols env Map.! name
+        spec = if Map.member name (allSymbols env) then Left (allSymbols env Map.! name) else Right (allSymbolsComplexity env Map.! name)
         myMutuals = Map.findWithDefault [] name allMutuals
         toRemove = drop (fromJust $ elemIndex name allNames) allNames \\ myMutuals -- All goals after and including @name@, except mutuals
         env' = foldr removeVariable env toRemove
       in Goal name env' spec impl 0 pos synth
     extractPos pass (Pos pos decl) = do
-      currentPosition .= pos
+      currentPosition .=  pos
       pass decl
     synthesisGoals st = fmap (makeGoal True (st ^. environment) (map fst ((st ^. goals) ++ (st ^. checkingGoals))) (st ^. mutuals)) (st ^. goals)
     typecheckingGoals st = fmap (makeGoal False (st ^. environment) (map fst ((st ^. goals) ++ (st ^. checkingGoals))) (st ^. mutuals)) (st ^. checkingGoals)
@@ -193,8 +192,8 @@ resolveSignatures :: BareDeclaration -> Resolver ()
 
 resolveSignatures (FuncDecl name _)  = do
   sch <- uses environment ((Map.! name) . allSymbols)
-  sch' <- resolveSchema sch
-  environment %= addPolyConstant name sch'
+  sch' <-  resolveSchema sch
+  environment %=  (addPolyConstant name sch')
 resolveSignatures (DataDecl dtName tParams pParams ctors) = mapM_ resolveConstructorSignature ctors
   where
     resolveConstructorSignature (ConstructorSig name _) = do
@@ -503,6 +502,8 @@ resolveFormula (Binary op l r) = do
               enforceSame sr (SetS elemSort)
               return $ toSetOp op
             else enforceSame sl IntS >> enforceSame sr IntS >> return op
+      | op == Mod
+        = enforceSame sl IntS >> enforceSame sr IntS >> return op
       | op == Le
         = if isSetS sl
             then do
