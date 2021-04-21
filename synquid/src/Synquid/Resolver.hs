@@ -29,6 +29,7 @@ import Debug.Trace
 data ResolverState = ResolverState {
   _environment :: Environment,
   _goals :: [(Id, (UProgram, SourcePos))],
+  _goalComplexity :: ComplexityAnnotation,
   _checkingGoals :: [(Id, (UProgram, SourcePos))],
   _condQualifiers :: [Formula],
   _typeQualifiers :: [Formula],
@@ -50,6 +51,7 @@ initResolverState = ResolverState {
   _mutuals = Map.empty,
   _inlines = Map.empty,
   _sortConstraints = [],
+  _goalComplexity = Complexity 0 0 0,
   _currentPosition = noPos,
   _idCount = 0
 }
@@ -69,18 +71,18 @@ resolveDecls declarations =
       mapM_ (extractPos resolveSignatures) declarations'
     declarations' = setDecl : declarations
     setDecl = Pos noPos defaultSetType
-    makeGoal synth env allNames allMutuals (name, (impl, pos)) =
+    makeGoal synth env allNames allMutuals complexity (name, (impl, pos))  =
       let
-        spec = if Map.member name (allSymbols env) then Left (allSymbols env Map.! name) else Right (allSymbolsComplexity env Map.! name)
+        spec = allSymbols env Map.! name
         myMutuals = Map.findWithDefault [] name allMutuals
         toRemove = drop (fromJust $ elemIndex name allNames) allNames \\ myMutuals -- All goals after and including @name@, except mutuals
         env' = foldr removeVariable env toRemove
-      in Goal name env' spec impl 0 pos synth
+      in Goal name env' spec complexity impl 0 pos synth
     extractPos pass (Pos pos decl) = do
       currentPosition .=  pos
       pass decl
-    synthesisGoals st = fmap (makeGoal True (st ^. environment) (map fst ((st ^. goals) ++ (st ^. checkingGoals))) (st ^. mutuals)) (st ^. goals)
-    typecheckingGoals st = fmap (makeGoal False (st ^. environment) (map fst ((st ^. goals) ++ (st ^. checkingGoals))) (st ^. mutuals)) (st ^. checkingGoals)
+    synthesisGoals st = fmap (makeGoal True (st ^. environment) (map fst ((st ^. goals) ++ (st ^. checkingGoals))) (st ^. mutuals) (st ^. goalComplexity)) (st ^. goals)
+    typecheckingGoals st = fmap (makeGoal False (st ^. environment) (map fst ((st ^. goals) ++ (st ^. checkingGoals))) (st ^. mutuals) (st ^. goalComplexity) ) (st ^. checkingGoals)
 
 resolveRefinement :: Environment -> Formula -> Either ErrorMessage Formula
 resolveRefinement env fml = runExcept (evalStateT (resolveTypeRefinement AnyS fml) (initResolverState {_environment = env}))
@@ -111,7 +113,9 @@ resolveDeclaration (TypeDecl typeName typeVars typeBody) = do
     else throwResError (text "Type variable(s)" <+> hsep (map text $ Set.toList extraTypeVars) <+>
               text "in the definition of type synonym" <+> text typeName <+> text "are undefined")
 resolveDeclaration (FuncDecl funcName typeSchema) = addNewSignature funcName typeSchema
-resolveDeclaration (FuncComplexityDecl funcName typeComplexitySchema) = addNewComplexitySignature funcName typeComplexitySchema
+resolveDeclaration (FuncComplexityDecl funcName (RSComp complexity typeSchema)) = do
+  addNewSignature funcName typeSchema
+  goalComplexity .= complexity
 resolveDeclaration d@(DataDecl dtName tParams pVarParams ctors) = do
   let
     (pParams, pVariances) = unzip pVarParams
@@ -161,9 +165,8 @@ resolveDeclaration (PredDecl (PredSig name argSorts resSort)) = do
   environment %= addGlobalPredicate name resSort argSorts
 resolveDeclaration (SynthesisGoal name impl) = do
   syms <- uses environment allSymbols
-  symsComplexity <- uses environment allSymbolsComplexity
   pos <-  use currentPosition
-  if (Map.member name syms) || (Map.member name symsComplexity)
+  if Map.member name syms
     then goals %= (++ [(name, (normalizeProgram impl, pos))])
     else throwResError (text "No specification found for synthesis goal" <+> text name)
 
@@ -191,6 +194,11 @@ resolveDeclaration (InlineDecl name args body) =
 resolveSignatures :: BareDeclaration -> Resolver ()
 
 resolveSignatures (FuncDecl name _)  = do
+  sch <- uses environment ((Map.! name) . allSymbols)
+  sch' <-  resolveSchema sch
+  environment %=  (addPolyConstant name sch')
+
+resolveSignatures (FuncComplexityDecl name (RSComp complexity typeSchema)) = do
   sch <- uses environment ((Map.! name) . allSymbols)
   sch' <-  resolveSchema sch
   environment %=  (addPolyConstant name sch')
@@ -651,10 +659,6 @@ addNewSignature name sch = do
   environment %= addPolyConstant name sch
   environment %= addUnresolvedConstant name sch
 
-addNewComplexitySignature name (RSComp (Complexity p logP constant) sch) = do
-  ifM (Set.member name <$> use (environment . constants)) (throwResError $ text "Duplicate declaration of function" <+> text name) (return ())
-  environment %= addPolyConstantComplexity name (RSComp (Complexity p logP constant) sch)
-  environment %= addUnresolvedConstant name sch
 
 substituteTypeSynonym name tArgs = do
   tss <- use $ environment . typeSynonyms

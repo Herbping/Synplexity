@@ -1,7 +1,8 @@
 leq :: x: a -> y: a -> {Bool | _v == (x <= y)}
-neq :: x: a -> y: a -> {Bool | _v == (x != y)}
+true :: {Bool | _v}
+false :: {Bool | !_v}
 zero :: {Int | _v == 0}
-inc :: x: Int -> {Int | _v == x + 1}
+
 dec :: x: Int -> {Int | _v == x - 1}
 
 data IList a <p :: Int -> a -> Bool> where
@@ -19,5 +20,5 @@ measure ielems :: IList a -> Set a where
 
 
 ith :: <p :: Int -> a -> Bool> . xs: IList a <p> -> i: {Int | 0 <= _v && _v < ilen xs} -> {a | p i _v}
-binarySearch :: <p :: Int -> a -> Bool> . x: a -> xs: IList a <p> -> min: Int ->  {Bool  | _v == (x in ielems xs) && (min<=ilen xs && min >=0)  }
+binarySearch :: <p :: Int -> a -> Bool> . x: a -> xs: IList a <p> -> min: Int ->  {Bool  | _v == (x in ielems xs)   }
 binarySearch = ??

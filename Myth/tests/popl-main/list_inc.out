@@ -1,4 +1,0 @@
-(* Generated Thu Oct  8 20:41:09 2015 *)
-fun (l1:list) ->
-  (map l1) (fun (n1:nat) ->
-    S n1)

@@ -29,7 +29,7 @@ import Debug.Trace
 -- return a type error if that is impossible
 reconstruct :: MonadHorn s => ExplorerParams -> TypingParams -> Goal -> s (Either ErrorMessage RProgram)
 reconstruct eParams tParams goal = do
-    initTS <- initTypingState (gEnvironment goal) (fromLeft (gSpec goal))
+    initTS <- initTypingState (gEnvironment goal) (gSpec goal)
     runExplorer (eParams { _sourcePos = gSourcePos goal }) tParams (Reconstructor reconstructTopLevel) initTS go
   where
     go = do
@@ -38,14 +38,13 @@ reconstruct eParams tParams goal = do
       runInSolver $ finalizeProgram p                                      -- Substitute all type/predicates variables and unknowns
 
 reconstructTopLevel :: MonadHorn s => Goal -> Explorer s RProgram
-reconstructTopLevel (Goal funName env (Left (ForallT a sch)) impl depth pos s) = reconstructTopLevel (Goal funName (addTypeVar a env) (Left sch) impl depth pos s)
-reconstructTopLevel (Goal funName env (Left (ForallP sig sch)) impl depth pos s) = reconstructTopLevel (Goal funName (addBoundPredicate sig env) (Left sch) impl depth pos s)
-reconstructTopLevel (Goal funName env (Right (RSComp _ rsch)) impl depth pos synth) =  reconstructTopLevel (Goal funName env (Left rsch) impl depth pos synth)
-reconstructTopLevel (Goal funName env (Left (Monotype typ@(FunctionT _ _ _))) impl depth _ synth) =  local (set (_1 . auxDepth) depth) reconstructFix
+reconstructTopLevel (Goal funName env (ForallT a sch) complexity impl depth pos s) = reconstructTopLevel (Goal funName (addTypeVar a env) sch complexity impl depth pos s)
+reconstructTopLevel (Goal funName env (ForallP sig sch) complexity impl depth pos s) = reconstructTopLevel (Goal funName (addBoundPredicate sig env) sch complexity impl depth pos s)
+reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT _ _ _)) complexity impl depth _ synth) =  local (set (_1 . auxDepth) depth) reconstructFix
   where
     reconstructFix = do
       let typ' = renameAsImpl (isBound env) impl typ
-      recCalls <- runInSolver (currentAssignment typ') >>= recursiveCalls synth
+      recCalls <- runInSolver (currentAssignment typ') >>= recursiveCalls synth complexity
       polymorphic <- traceShow ("recCalls", recCalls) $ asks . view $ _1 . polyRecursion
       predPolymorphic <- traceShow ("polymorphic", polymorphic) $ asks . view $ _1 . predPolyRecursion
       let tvs = traceShow ("predPolymorphic", predPolymorphic) $  env ^. boundTypeVars
@@ -58,12 +57,12 @@ reconstructTopLevel (Goal funName env (Left (Monotype typ@(FunctionT _ _ _))) im
       return $ ctx p
 
     -- | 'recursiveCalls' @t@: name-type pairs for recursive calls to a function with type @t@ (0 or 1)
-    recursiveCalls False t = return [(funName, t)]
-    recursiveCalls _ t = do
+    recursiveCalls False complexity t = return [(funName, t)]
+    recursiveCalls _ complexity t = do
       fixStrategy <-traceShow ("t", t) asks . view $ _1 . fixStrategy
       case fixStrategy of
         AllArguments -> do recType <- fst <$> recursiveTypeTuple t ffalse; if recType == t then return [] else return [(funName, recType)]
-        FirstArgument -> do recType <- recursiveTypeFirst t; if recType == t then return [] else return [(funName, recType)]
+        FirstArgument -> do recType <- recursiveTypeFirst t complexity; if recType == t then return [] else return [(funName, recType)]
         DisableFixpoint -> return []
         Nonterminating -> return [(funName, t)]
 
@@ -71,7 +70,7 @@ reconstructTopLevel (Goal funName env (Left (Monotype typ@(FunctionT _ _ _))) im
     -- @fml@ denotes the disjunction @x1' < x1 || ... || xk' < xk@ of strict termination conditions on all previously seen recursible arguments to be added to the type of the last recursible argument;
     -- the function returns a tuple of the weakend type @t@ and a flag that indicates if the last recursible argument has already been encountered and modified
     recursiveTypeTuple (FunctionT x tArg tRes) fml =
-      case terminationRefinement x tArg of
+      case terminationRefinement x tArg complexity of
         Nothing -> do
           (tRes', seenLast) <- recursiveTypeTuple tRes fml
           return (FunctionT x tArg tRes', seenLast)
@@ -88,27 +87,38 @@ reconstructTopLevel (Goal funName env (Left (Monotype typ@(FunctionT _ _ _))) im
     recursiveTypeTuple t _ = return (t, False)
 
     -- | 'recursiveTypeFirst' @t fml@: type of the recursive call to a function of type @t@ when only the first recursible argument decreases
-    recursiveTypeFirst (FunctionT x tArg tRes) =
-      case terminationRefinement x tArg of
-        Nothing -> FunctionT x tArg <$> recursiveTypeFirst tRes
+    recursiveTypeFirst (FunctionT x tArg tRes) complexity =
+      case terminationRefinement x tArg complexity of
+        Nothing -> FunctionT x tArg <$> recursiveTypeFirst tRes complexity
         Just (argLt, _) -> do
           y <- freshVar env "x"
           return $ FunctionT y (addRefinement tArg argLt) (renameVar (isBound env) x y tArg tRes)
-    recursiveTypeFirst t = return t
+    recursiveTypeFirst t complexity= return t
 
     -- | If argument is recursible, return its strict and non-strict termination refinements, otherwise @Nothing@
-    terminationRefinement argName (ScalarT IntT fml) = Just ( valInt |>=| IntLit 0  |&|  valInt |<| intVar argName,
+    terminationRefinement argName (ScalarT IntT fml) complexity = case complexity of
+      Complexity 0 1 0 -> Just ( valInt |>=| IntLit 0  |&| ((IntLit 2 |*| valInt |=| intVar argName) ||| (IntLit 2 |*| valInt |=| intVar argName |-| IntLit 1)),
+                                                              valInt |>=| IntLit 0  |&|  ((IntLit 2 |*| valInt |=| intVar argName) ||| (IntLit 2 |*| valInt |=| intVar argName |-| IntLit 1)))
+      _ -> Just ( valInt |>=| IntLit 0  |&|  valInt |<| intVar argName,
                                                               valInt |>=| IntLit 0  |&|  valInt |<=| intVar argName)
-    terminationRefinement argName (ScalarT dt@(DatatypeT name _ _) fml) = case env ^. datatypes . to (Map.! name) . wfMetric of
-      Nothing -> Nothing
-      Just mName -> let
+    terminationRefinement argName (ScalarT dt@(DatatypeT name _ _) fml) complexity = case complexity of
+      Complexity 0 1 0 -> case env ^. datatypes . to (Map.! name) . wfMetric of
+        Nothing -> Nothing
+        Just mName -> let
+                      metric x =  Pred IntS mName [x]
+                      argSort = toSort dt
+                    in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| ((IntLit 2 |*| metric (Var argSort valueVarName) |=| metric (Var argSort argName)) ||| (IntLit 2 |*| metric (Var argSort valueVarName) |=| metric (Var argSort argName) |-| IntLit 1)),
+                              metric (Var argSort valueVarName) |>=| IntLit 0  |&| ((IntLit 2 |*| metric (Var argSort valueVarName) |=| metric (Var argSort argName)) ||| (IntLit 2 |*| metric (Var argSort valueVarName) |=| metric (Var argSort argName) |-| IntLit 1)))
+      _ -> case env ^. datatypes . to (Map.! name) . wfMetric of
+        Nothing -> Nothing
+        Just mName -> let
                       metric x =  Pred IntS mName [x]
                       argSort = toSort dt
                     in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<| metric (Var argSort argName),
                               metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| metric (Var argSort argName))
-    terminationRefinement _ _ = Nothing
+    terminationRefinement _ _ _ = Nothing
 
-reconstructTopLevel (Goal _ env (Left (Monotype t)) impl depth _ _) = local (set (_1 . auxDepth) depth) $ reconstructI env t impl
+reconstructTopLevel (Goal _ env (Monotype t) complexity impl depth _ _) = local (set (_1 . auxDepth) depth) $ reconstructI env t impl
 
 -- | 'reconstructI' @env t impl@ :: reconstruct unknown types and terms in a judgment @env@ |- @impl@ :: @t@ where @impl@ is a (possibly) introduction term
 -- (top-down phase of bidirectional reconstruction)
@@ -266,7 +276,7 @@ reconstructE' env typ (PApp iFun iArg) = do
                       impl <- etaExpand tArg f
                       _ <- enqueueGoal env tArg impl d
                       return ()
-          Just (env', def) -> auxGoals %= ((Goal f env' (Left (Monotype tArg)) def d noPos True) :) -- This is a locally defined function: add an aux goal with its body
+          Just (env', def) -> auxGoals %= ((Goal f env'  (Monotype tArg) (Complexity 0 0 0) def d noPos True) :) -- This is a locally defined function: add an aux goal with its body
         return iArg
       _ -> enqueueGoal env tArg iArg d -- HO argument is an abstraction: enqueue a fresh goal
 

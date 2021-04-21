@@ -8,13 +8,11 @@ termination measure val :: Nat -> {Int | _v >= 0} where
 
 
 zero :: {Int | _v == 0}
-two :: {Int | _v == 2}
-incTwo :: x: Nat -> {Int | _v == val x + 2}
-double :: x: Nat -> {Int | _v == val x * val x}
-one :: {Int | _v == 1}
-leq :: x: Int -> y: Int -> {Bool | _v == (x <= y)}
-plus  :: x: Int -> y: Int -> {Int | _v == (x + y)}
+div2 :: x: Nat -> {Nat | 2 * (val _v) == (val x) || 2 * (val _v) == (val x) - 1}
+even :: x: Nat -> {Bool | _v == ((val x) % 2 == 0)}
+incTwo :: x: Int -> {Int | _v ==  x + 1}
+double :: x: Int -> {Int | _v ==  x + x}
 
-exp_two |*| (0,1,0) :: n: Nat -> {Int | _v == 2 * val n}
+exp_two |*| (0,1,0) :: n: Nat -> {Int | _v ==val n}
 
 exp_two = ??

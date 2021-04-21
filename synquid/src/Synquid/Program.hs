@@ -230,7 +230,7 @@ data RSchemaComplexity = RSComp ComplexityAnnotation RSchema
 data Environment = Environment {
   -- | Variable part:
   _symbols :: Map Int (Map Id RSchema),    -- ^ Variables and constants (with their refinement types), indexed by arity
-  _symbolsComplexity :: Map Int (Map Id RSchemaComplexity),    -- ^ Variables and constants (with their refinement types), indexed by arity
+--  _symbolsComplexity :: Map Int (Map Id RSchemaComplexity),    -- ^ Variables and constants (with their refinement types), indexed by arity
   _boundTypeVars :: [Id],                  -- ^ Bound type variables
   _boundPredicates :: [PredSig],           -- ^ Argument sorts of bound abstract refinements
   _assumptions :: Set Formula,             -- ^ Unknown assumptions
@@ -258,7 +258,7 @@ instance Ord Environment where
 -- | Empty environment
 emptyEnv = Environment {
   _symbols = Map.empty,
-  _symbolsComplexity = Map.empty,
+--  _symbolsComplexity = Map.empty,
   _boundTypeVars = [],
   _boundPredicates = [],
   _assumptions = Set.empty,
@@ -276,15 +276,15 @@ emptyEnv = Environment {
 
 -- | 'symbolsOfArity' @n env@: all symbols of arity @n@ in @env@
 symbolsOfArity n env = Map.findWithDefault Map.empty n (env ^. symbols)
-symbolsComplexityOfArity n env = Map.findWithDefault Map.empty n (env ^. symbolsComplexity)
+--symbolsComplexityOfArity n env = Map.findWithDefault Map.empty n (env ^. symbolsComplexity)
 
 -- | All symbols in an environment
 allSymbols :: Environment -> Map Id RSchema
 allSymbols env = Map.unions $ Map.elems (env ^. symbols)
 
 -- | All symbolsComplexity in an environment
-allSymbolsComplexity :: Environment -> Map Id RSchemaComplexity
-allSymbolsComplexity env = Map.unions $ Map.elems (env ^. symbolsComplexity)
+--allSymbolsComplexity :: Environment -> Map Id RSchemaComplexity
+--allSymbolsComplexity env = Map.unions $ Map.elems (env ^. symbolsComplexity)
 
 -- | 'lookupSymbol' @name env@ : type of symbol @name@ in @env@, including built-in constants
 lookupSymbol :: Id -> Int -> Bool -> Environment -> Maybe RSchema
@@ -303,8 +303,8 @@ lookupSymbol name a hasSet env
     isBinary = a == 2 && (name `elem` Map.elems binOpTokens)
     asInt = asInteger name
 
-lookupSymbolComplexity :: Id -> Int -> Bool -> Environment -> Maybe RSchemaComplexity
-lookupSymbolComplexity name a hasSet env = Map.lookup name (allSymbolsComplexity env)
+--lookupSymbolComplexity :: Id -> Int -> Bool -> Environment -> Maybe RSchemaComplexity
+--lookupSymbolComplexity name a hasSet env = Map.lookup name (allSymbolsComplexity env)
 
 symbolAsFormula :: Environment -> Id -> RType -> Formula
 symbolAsFormula _ name t | arity t > 0
@@ -366,13 +366,13 @@ addPolyVariable name sch e =  let n = arity (toMonotype sch) in (symbols %~ Map.
 
 
 
-addPolyVariableComplexity :: Id -> RSchemaComplexity -> Environment -> Environment
-addPolyVariableComplexity name  (RSComp annotation sch) e =  let n = arity (toMonotype sch) in (symbolsComplexity %~ Map.insertWith Map.union n (Map.singleton name  (RSComp annotation sch))) e
-  where
-    syms = unwords $ Map.keys $ allSymbolsComplexity e
-    en = Map.keys $ allSymbolsComplexity e
-    n = arity (toMonotype sch)
-    en' = Map.keys $ allSymbolsComplexity ((symbolsComplexity %~ Map.insertWith Map.union n (Map.singleton name  (RSComp annotation sch))) e)
+--addPolyVariableComplexity :: Id -> RSchemaComplexity -> Environment -> Environment
+--addPolyVariableComplexity name  (RSComp annotation sch) e =  let n = arity (toMonotype sch) in (symbolsComplexity %~ Map.insertWith Map.union n (Map.singleton name  (RSComp annotation sch))) e
+--  where
+--    syms = unwords $ Map.keys $ allSymbolsComplexity e
+--    en = Map.keys $ allSymbolsComplexity e
+--    n = arity (toMonotype sch)
+--    en' = Map.keys $ allSymbolsComplexity ((symbolsComplexity %~ Map.insertWith Map.union n (Map.singleton name  (RSComp annotation sch))) e)
 
 -- | 'addConstant' @name t env@ : add type binding @name@ :: Monotype @t@ to @env@
 addConstant :: Id -> RType -> Environment -> Environment
@@ -382,8 +382,8 @@ addConstant name t = addPolyConstant name (Monotype t)
 addPolyConstant :: Id -> RSchema -> Environment -> Environment
 addPolyConstant name sch = addPolyVariable name sch . (constants %~ Set.insert name)
 
-addPolyConstantComplexity :: Id -> RSchemaComplexity -> Environment -> Environment
-addPolyConstantComplexity name sch = addPolyVariableComplexity name sch . (constants %~ Set.insert name)
+--addPolyConstantComplexity :: Id -> RSchemaComplexity -> Environment -> Environment
+--addPolyConstantComplexity name sch = addPolyVariableComplexity name sch . (constants %~ Set.insert name)
 
 addLetBound :: Id -> RType -> Environment -> Environment
 addLetBound name t = addVariable name t . (letBound %~ Set.insert name)
@@ -549,7 +549,8 @@ data Constraint = Subtype Environment RType RType Bool Id
 data Goal = Goal {
   gName :: Id,                  -- ^ Function name
   gEnvironment :: Environment,  -- ^ Enclosing environment
-  gSpec :: Either RSchema RSchemaComplexity,             -- ^ Specification
+  gSpec :: RSchema,             -- ^ Specification
+  gComplexity :: ComplexityAnnotation,
   gImpl :: UProgram,            -- ^ Implementation template
   gDepth :: Int,                -- ^ Maximum level of auxiliary goal nesting allowed inside this goal
   gSourcePos :: SourcePos,      -- ^ Source Position,

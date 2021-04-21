@@ -504,7 +504,7 @@ isPolyConstructor (Program (PSymbol name) t) = isTypeName name && (not . Set.nul
 
 enqueueGoal env typ impl depth = do
   g <- freshVar env "f"
-  auxGoals %= ((Goal g env (Left (Monotype typ)) impl depth noPos True) :)
+  auxGoals %= ((Goal g env  (Monotype typ) (Complexity 0 0 0) impl depth noPos True) :)
   return $ Program (PSymbol g) typ
 
 {- Utility -}

@@ -361,10 +361,10 @@ instance Pretty Candidate where
   pretty (Candidate sol valids invalids label) = text label <> text ":" <+> pretty sol <+> parens (pretty (Set.size valids) <+> pretty (Set.size invalids))
 
 instance Pretty Goal where
-  pretty (Goal name env (Left spec) impl depth _ _) = pretty env <+> operator "|-" <+> text name <+> operator "::" <+> pretty spec $+$ text name <+> operator "=" <+> pretty impl $+$ parens (text "depth:" <+> pretty depth)
+  pretty (Goal name env spec complexity impl depth _ _) = pretty env <+> operator "|-" <+> text name <+> operator "::" <+> pretty spec $+$ text name <+> operator "=" <+> pretty impl $+$ parens (text "depth:" <+> pretty depth)
 
-prettySpec g@(Goal name _ _ _ _ _ _) = text name <+> operator "::" <+> pretty (unresolvedSpec g)
-prettySolution (Goal name _ _ _ _ _ _) prog = text name <+> operator "=" </> pretty prog
+prettySpec g@(Goal name _ _ _ _ _ _ _) = text name <+> operator "::" <+> pretty (unresolvedSpec g)
+prettySolution (Goal name _ _ _ _ _ _ _) prog = text name <+> operator "=" </> pretty prog
 
 {- Input language -}
 

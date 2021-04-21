@@ -1,0 +1,9 @@
+exp_two :: n:Nat -> {Int|_v == 2 * val n}
+test/Complexity/exp_two_refinment.sq:18: Error:
+  Cannot match shape 'Int'
+  with shape '_'
+  when checking exp_two ::
+  X0:_ -> _ in
+  \n . 
+    match exp_two ?? with
+

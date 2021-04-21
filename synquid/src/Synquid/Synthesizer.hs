@@ -81,9 +81,7 @@ synthesize explorerParams solverParams goal cquals tquals = evalZ3State $ evalFi
 
     components = componentsIn $ gEnvironment goal
     componentsIn = map toMonotype . Map.elems . allSymbols
-    syntGoal = toMonotype $ case (gSpec goal) of
-                            Left sch -> sch
-                            Right (RSComp annotation sch) -> sch
+    syntGoal = toMonotype $ (gSpec goal) 
 
 {- Qualifier Generators -}
 
