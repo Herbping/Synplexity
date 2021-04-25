@@ -311,7 +311,7 @@ parseRefinedSort = braces $ do
 exprTable mkUnary mkBinary withGhost = [
   [unary Not, unary Neg],
   [binary Times AssocLeft],
-  [binary Plus AssocLeft, binary Minus AssocLeft, binary Mod AssocLeft],
+  [binary Plus AssocLeft, binary Minus AssocLeft, binary Mod AssocLeft, binary Div AssocLeft],
   [binary Eq AssocNone, binary Neq AssocNone, binary Le AssocNone, binary Lt AssocNone, binary Ge AssocNone, binary Gt AssocNone]
     ++ if withGhost then [binaryWord Member AssocNone] else [],
   [binary And AssocLeft, binary Or AssocLeft],

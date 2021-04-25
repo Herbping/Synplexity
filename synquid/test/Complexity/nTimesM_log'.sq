@@ -1,0 +1,19 @@
+
+data Nat where
+	Zero :: Nat
+	S :: x : Nat -> Nat
+termination measure len :: Nat -> {Int | _v >= 0} where
+  Zero -> 0
+  S x  -> 1 + len x 
+
+even :: x: Nat -> {Bool | _v == ( (len x) % 2 == 0)}
+
+div2 :: x: Nat -> {Nat | (len _v) == len x  / 2}
+double :: x: Int -> {Int | _v ==  x + x}
+
+eqZ :: x: Nat -> {Bool | _v == (len x == 0)}
+
+plus :: x: {Nat | len _v >0}  -> y: Int -> {Int | _v ==  len x + y}
+prod |*| (0,1,0) :: n: Nat -> m: {Nat | len _v >0}  -> {Int | _v == (len m) * (len n)}
+
+prod = ??

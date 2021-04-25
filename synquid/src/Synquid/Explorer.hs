@@ -21,6 +21,7 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 import qualified Data.Map as Map
 import Data.Map (Map)
+import Data.Map.Internal.Debug (showTree)
 import Data.Char
 import Control.Monad.Logic
 import Control.Monad.State
@@ -60,7 +61,8 @@ data ExplorerParams = ExplorerParams {
   _useMemoization :: Bool,                -- ^ Should enumerated terms be memoized?
   _symmetryReduction :: Bool,             -- ^ Should partial applications be memoized to check for redundancy?
   _sourcePos :: SourcePos,                -- ^ Source position of the current goal
-  _explorerLogLevel :: Int                -- ^ How verbose logging is
+  _explorerLogLevel :: Int,                -- ^ How verbose logging is
+  _rName :: Id
 }
 
 makeLenses ''ExplorerParams
@@ -74,7 +76,8 @@ data ExplorerState = ExplorerState {
   _solvedAuxGoals :: Map Id RProgram,              -- Synthesized auxiliary goals, to be inserted into the main program
   _lambdaLets :: Map Id (Environment, UProgram),   -- ^ Local bindings to be checked upon use (in type checking mode)
   _requiredTypes :: Requirements,                  -- ^ All types that a variable is required to comply to (in repair mode)
-  _symbolUseCount :: Map Id Int                    -- ^ Number of times each symbol has been used in the program so far
+  _symbolUseCount :: Map Id Int,                    -- ^ Number of times each symbol has been used in the program so far
+  _cost :: Int
 } deriving (Eq, Ord)
 
 makeLenses ''ExplorerState
@@ -125,7 +128,7 @@ runExplorer eParams tParams topLevel initTS go = do
         (e:_) -> return $ Left e
     (res : _) -> return $ Right res
   where
-    initExplorerState = ExplorerState initTS [] Map.empty Map.empty Map.empty Map.empty
+    initExplorerState = ExplorerState initTS [] Map.empty Map.empty Map.empty Map.empty 0
     impossible = ErrorMessage {
         emKind = SynthesisError,
         emPosition = _sourcePos eParams,
@@ -153,8 +156,13 @@ generateMaybeIf env t = ifte generateThen (uncurry3 $ generateElse env t) (gener
     generateThen = do
       cUnknown <- Unknown Map.empty <$> freshId "C"
       addConstraint $ WellFormedCond env cUnknown
+      pre <- use cost
+      writeLog 2 $ text "cost-pre" <+> text (show pre)
       pThen <- cut $ generateE (addAssumption cUnknown env) t -- Do not backtrack: if we managed to find a solution for a nonempty subset of inputs, we go with it
+      postThen <- use cost
+      writeLog 2 $ text "cost-post" <+> text (show postThen)
       cond <- conjunction <$> currentValuation cUnknown
+      cost %= (-) (postThen-pre)
       return (cond, unknownName cUnknown, pThen)
 
 -- | Proceed after solution @pThen@ has been found under assumption @cond@
@@ -369,6 +377,7 @@ generateEAt env typ d = do
     then do -- Do not use memoization
       p <- enumerateAt env typ d
       checkE env typ p
+
       return p
     else do -- Try to fetch from memoization store
       startState <- get
@@ -406,6 +415,8 @@ checkE :: MonadHorn s => Environment -> RType -> RProgram -> Explorer s ()
 checkE env typ p@(Program pTerm pTyp) = do
   ctx <- asks . view $ _1 . context
   writeLog 2 $ text "Checking" <+> pretty p <+> text "::" <+> pretty typ <+> text "in" $+$ pretty (ctx (untyped PHole))
+  useCounts <- use symbolUseCount
+  writeLog 3 $ text "map" <+> text (showTree useCounts)
 
   -- ifM (asks $ _symmetryReduction . fst) checkSymmetry (return ())
 
@@ -427,7 +438,15 @@ enumerateAt env typ 0 = do
     let symbols' = filter (\(x, _) -> notElem x setConstructors) $ if arity typ == 0
                       then sortBy (mappedCompare (\(x, _) -> (Set.member x (env ^. constants), Map.findWithDefault 0 x useCounts))) symbols
                       else sortBy (mappedCompare (\(x, _) -> (not $ Set.member x (env ^. constants), Map.findWithDefault 0 x useCounts))) symbols
-    msum $ map pickSymbol symbols'
+                      
+    let d = (getBound env)
+    recCost <- use cost
+    goalName <- asks . view $ _1 . rName
+    
+    let symbols'' = if (<) recCost  d
+    		then symbols'
+    		else filter (\(x, _) -> x /= goalName) symbols'
+    msum $ map pickSymbol symbols''
   where
     pickSymbol (name, sch) = do
       when (Set.member name (env ^. letBound)) mzero
@@ -435,11 +454,16 @@ enumerateAt env typ 0 = do
       let p = Program (PSymbol name) t
       writeLog 2 $ text "Trying" <+> pretty p
       symbolUseCount %= Map.insertWith (+) name 1
+      goalName <- asks . view $ _1 . rName
+      if name == goalName
+      	then do 
+      	 cost %= (+) 1
+      	else do
+      	 cost %= (+) 0
       case Map.lookup name (env ^. shapeConstraints) of
         Nothing -> return ()
         Just sc -> addConstraint $ Subtype env (refineBot env $ shape t) (refineTop env sc) False ""
       return p
-
 enumerateAt env typ d = do
   let maxArity = fst $ Map.findMax (env ^. symbols)
   guard $ arity typ < maxArity

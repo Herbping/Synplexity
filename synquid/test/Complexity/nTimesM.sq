@@ -5,13 +5,12 @@ zero :: {Int | _v == 0}
 dec :: x: Int -> {Int | _v ==  x - 1}
 plus :: x: Int -> y: Int -> {Int | _v ==  x + y}
 div2 :: x: Int -> {Int | 2 * _v == x || 2 *  _v ==  x - 1}
-even :: x: Int -> {Bool | _v == ( x% 2 == 0)}
+even :: x: Int -> {Bool | _v == ( x % 2 == 0)}
 double :: x: Int -> {Int | _v ==  x + x}
 
 
 eq :: x: a -> y: a -> {Bool | _v == (x == y)}
-geq :: x: a -> y: a -> {Bool | _v == (x > y)}
 
-nTimesM  :: n: {Int | _v >=0} -> m: {Int | _v >=0 && _v>n} -> {Int | _v ==m*n}
+nTimesM  :: n: {Int | _v >=0} -> m: {Int | _v >=0} -> {Int | _v ==m*n}
 
 nTimesM = ??

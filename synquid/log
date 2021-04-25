@@ -1,0 +1,11 @@
+,
+    BenchmarkGroup("Resyn", [], [
+        Benchmark('Resyn/List-Triple1', 'triple1', 'append'),
+        Benchmark('Resyn/List-Triple2', 'triple2', 'append', ['-a=4']),
+        Benchmark('Resyn/List-Concat', 'list concat linear', 'append'),
+        Benchmark('Resyn/List-Intersect', 'list intersection', 'member', ['-f=AllArguments']),
+        Benchmark('Resyn/List-Diff', 'list diff', 'member', ['-f=AllArguments']),
+        Benchmark('Resyn/List-Insert-Fine', 'list insert'),
+        Benchmark('Resyn/List-Range', 'list range', '', ['-a=4']),
+        Benchmark('Resyn/List-LenCompare', 'list length compare')
+        ])

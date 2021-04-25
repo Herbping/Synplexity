@@ -49,92 +49,98 @@ class BenchmarkGroup:
 
 ALL_BENCHMARKS = [
     BenchmarkGroup("List", [], [
-        Benchmark('List-Null', 'is empty', 'true, false'),
-        Benchmark('List-Elem', 'is member', 'true, false, $=$, $\\neq$'),
-        Benchmark('List-Stutter', 'duplicate each element'),
-        Benchmark('List-Replicate', 'replicate', '0, inc, dec, $\\leq$, $\\neq$'),
-        Benchmark('List-Append', 'append two lists', '', ['-m=1']),
-        Benchmark('List-Concat', 'concatenate list of lists', 'append'),
-        Benchmark('List-Take', 'take first $n$ elements', '0, inc, dec, $\\leq$, $\\neq$'),
-        Benchmark('List-Drop', 'drop first $n$ elements', '0, inc, dec, $\\leq$, $\\neq$'),
-        Benchmark('List-Delete', 'delete value', '$=$, $\\neq$'),
-        Benchmark('List-Map', 'map'),
-        Benchmark('List-Zip', 'zip'),
-        Benchmark('List-ZipWith', 'zip with function'),
-        Benchmark('List-Product', 'cartesian product', 'append, map'),
-        Benchmark('List-Ith', '$i$-th element', '0, inc, dec, $\\leq$, $\\neq$'),
-        Benchmark('List-ElemIndex', 'index of element', '0, inc, dec, $=$, $\\neq$'),
-        Benchmark('List-Snoc', 'insert at end'),
-        Benchmark('List-Reverse', 'reverse', 'insert at end'),
-        Benchmark('List-Foldr', 'foldr'),
-        Benchmark('List-Fold-Length', 'length using fold', '0, inc, dec', ['-m=0']),
-        Benchmark('List-Fold-Append', 'append using fold', '', ['-m=0'])
+        Benchmark('N/List-Null', 'is empty', 'true, false'),
+        Benchmark('C1/List-Elem', 'is member', 'true, false, $=$, $\\neq$'),
+        Benchmark('C1/List-Duplicate', 'duplicate each element'),
+        Benchmark('C1/List-Replicate', 'replicate', '0, inc, dec, $\\leq$, $\\neq$'),
+        Benchmark('C1/List-Append', 'append two lists', '', ['-m=1']),
+        Benchmark('C1/List-Concat', 'concatenate list of lists', 'append'),
+        Benchmark('C1/List-Take', 'take first $n$ elements', '0, inc, dec, $\\leq$, $\\neq$'),
+        Benchmark('C1/List-Drop', 'drop first $n$ elements', '0, inc, dec, $\\leq$, $\\neq$'),
+        Benchmark('C1/List-Delete', 'delete value', '$=$, $\\neq$'),
+        Benchmark('C1/List-Zip', 'zip'),
+        Benchmark('C1/List-Ith', '$i$-th element', '0, inc, dec, $\\leq$, $\\neq$'),
+        Benchmark('C1/List-ElemIndex', 'index of element', '0, inc, dec, $=$, $\\neq$'),
+        Benchmark('C1/List-Snoc', 'insert at end'),
+        Benchmark('C1/List-Reverse', 'reverse', 'insert at end'),
         ]),
     BenchmarkGroup("Unique list", [], [
-        Benchmark('UniqueList-Insert', 'insert', '$=$, $\\neq$'),
-        Benchmark('UniqueList-Delete', 'delete', '$=$, $\\neq$'),
-        Benchmark('List-Nub', 'remove duplicates', 'is member', []),
-        Benchmark('List-Compress', 'remove adjacent dupl.', '$=$, $\\neq$'),
-        Benchmark('UniqueList-Range', 'integer range', '0, inc, dec, $\\leq$, $\\neq$'),
+        Benchmark('C1/UniqueList-Insert', 'insert', '$=$, $\\neq$'),
+        Benchmark('C1/UniqueList-Delete', 'delete', '$=$, $\\neq$'),
+        Benchmark('C2/List-RemoveDub', 'remove duplicates', 'is member', []),
+        Benchmark('C1/List-Compress', 'remove adjacent dupl.', '$=$, $\\neq$'),
+        Benchmark('C1/UniqueList-Range', 'integer range', '0, inc, dec, $\\leq$, $\\neq$'),
         ]),
     BenchmarkGroup("Strictly sorted list", ['-f=AllArguments'], [
-        Benchmark('StrictIncList-Insert', 'insert', '$<$'),
-        Benchmark('StrictIncList-Delete', 'delete', '$<$'),
-        Benchmark('StrictIncList-Intersect', 'intersect', '$<$', ['-f=AllArguments']),
+        Benchmark('C1/StrictIncList-Insert', 'insert', '$<$'),
+        Benchmark('C1/StrictIncList-Delete', 'delete', '$<$'),
+        Benchmark('C1/StrictIncList-Intersect', 'intersect', '$<$', ['-f=AllArguments']),
         ]),
     BenchmarkGroup("Sorting",  ['-a=2', '-m=3', '-f=AllArguments'], [
         # Insertion Sort
-        Benchmark('IncList-Insert', 'insert (sorted)', '$\\leq$, $\\neq$'),
-        Benchmark('List-InsertSort', 'insertion sort', 'insert (sorted)'),
-        Benchmark('List-Fold-Sort', 'sort by folding', 'foldr, $\\leq$, $\\neq$', ['-m=1', '-a=2', '-e']),
+        Benchmark('C1/insert(sorted)', 'insert (sorted)', '$\\leq$, $\\neq$'),
+        Benchmark('C2/List-InsertSort', 'insertion sort', 'insert (sorted)'),
         # Selection Sort
-        Benchmark('List-ExtractMin', 'extract minimum', '$\\leq$, $\\neq$', ['-a=2', '-m 3']),
-        Benchmark('List-SelectSort', 'selection sort', 'extract minimum'),        
+        Benchmark('C1/List-ExtractMin', 'extract minimum', '$\\leq$, $\\neq$', ['-a=2', '-m 3']),
+        Benchmark('C2/List-SelectSort', 'selection sort', 'extract minimum'),        
         # Merge sort
-        Benchmark('List-Split', 'balanced split', '', ['-m=3']),
-        Benchmark('IncList-Merge', 'merge', '$\\leq$, $\\neq$', ['-f=AllArguments']),
-        Benchmark('List-MergeSort', 'merge sort', 'split, merge', ['-a=2', '-m=3']),
+        Benchmark('C1/List-Split', 'balanced split', '', ['-m=3']),
+        Benchmark('C1/IncList-Merge', 'merge', '$\\leq$, $\\neq$', ['-f=AllArguments']),
+        Benchmark('M/List-MergeSort', 'merge sort', 'split, merge', ['-m=3']),
         # Quick sort
-        Benchmark('List-Partition', 'partition', '$\\leq$'),
-        Benchmark('IncList-PivotAppend', 'append with pivot'),
-        Benchmark('List-QuickSort', 'quick sort', 'partition, append w/pivot', ['-a=2'])
+        Benchmark('C1/List-Partition', 'partition', '$\\leq$'),
+        Benchmark('C1/IncList-PivotAppend', 'append with pivot'),
+        Benchmark('C2/List-QuickSort', 'quick sort', 'partition, append w/pivot')
         ]),
     BenchmarkGroup("Tree",  [], [
-        Benchmark('Tree-Elem', 'is member', 'false, not, or, $=$'),
-        Benchmark('Tree-Count', 'node count', '0, 1, +'),
-        Benchmark('Tree-ToList', 'preorder', 'append'),
-        Benchmark('Tree-BalancedReplicate', 'create balanced', '0, inc, dec, $\\leq$, $\\neq$')
+        Benchmark('T/Tree-Elem', 'is member', 'false, not, or, $=$'),
+        Benchmark('T/Tree-Count', 'node count', '0, 1, +'),
+        Benchmark('T/Tree-ToList', 'preorder', 'append'),
         ]),
     BenchmarkGroup("BST", [], [
-        Benchmark('BST-Member', 'is member', 'true, false, $\\leq$, $\\neq$'),
-        Benchmark('BST-Insert', 'insert', '$\\leq$, $\\neq$'),
-        Benchmark('BST-Delete', 'delete', '$\\leq$, $\\neq$', ['-e']),
-        Benchmark('BST-Sort', 'BST sort', '$\\leq$, $\\neq$')
+        Benchmark('T/BST-Member', 'is member', 'true, false, $\\leq$, $\\neq$'),
+        Benchmark('T/BST-Insert', 'insert', '$\\leq$, $\\neq$'),
+        Benchmark('T/BST-Delete', 'delete', '$\\leq$, $\\neq$', ['-e']),
+        Benchmark('C2/BST-Sort', 'BST sort', '$\\leq$, $\\neq$')
         ]),
     BenchmarkGroup("Binary Heap", [], [
-        Benchmark('BinHeap-Member', 'is member', 'false, not, or, $\\leq$, $\\neq$'),
-        Benchmark('BinHeap-Insert', 'insert', '$\\leq$, $\\neq$'),
-        Benchmark('BinHeap-Singleton', '1-element constructor', '$\\leq$, $\\neq$'),
-        Benchmark('BinHeap-Doubleton', '2-element constructor', '$\\leq$, $\\neq$'),
-        Benchmark('BinHeap-Tripleton', '3-element constructor', '$\\leq$, $\\neq$')
+        Benchmark('C1/BinHeap-Member', 'is member', 'false, not, or, $\\leq$, $\\neq$'),
+        Benchmark('C1/BinHeap-Insert', 'insert', '$\\leq$, $\\neq$'),
+        Benchmark('N/BinHeap-Singleton', '1-element constructor', '$\\leq$, $\\neq$'),
+        Benchmark('N/BinHeap-Doubleton', '2-element constructor', '$\\leq$, $\\neq$'),
+        Benchmark('N/BinHeap-Tripleton', '3-element constructor', '$\\leq$, $\\neq$')
         ]),
     BenchmarkGroup("AVL", ['-a=2'], [
-        Benchmark('AVL-RotateL', 'rotate left', 'inc', ['-a 2', '-u']),
-        Benchmark('AVL-RotateR', 'rotate right', 'inc', ['-a 2', '-u']),
-        Benchmark('AVL-Balance', 'balance', 'rotate, nodeHeight, isSkewed, isLHeavy, isRHeavy', ['-a 2', '-e']),
-        Benchmark('AVL-Insert', 'insert', 'balance, $<$', ['-a 2']),
-        Benchmark('AVL-ExtractMin', 'extract minimum', '$<$', ['-a 2']),
-        Benchmark('AVL-Delete', 'delete', 'extract minimum, balance, $<$', ['-a 2', '-m 1']),
+        Benchmark('N/AVL-RotateL', 'rotate left', 'inc', ['-a 2', '-u']),
+        Benchmark('N/AVL-RotateR', 'rotate right', 'inc', ['-a 2', '-u']),
+        Benchmark('N/AVL-Balance', 'balance', 'rotate, nodeHeight, isSkewed, isLHeavy, isRHeavy', ['-a 2', '-e']),
+        Benchmark('M/AVL-Insert', 'insert', 'balance, $<$', ['-a 2']),
+        Benchmark('M/AVL-ExtractMin', 'extract minimum', '$<$', ['-a 2']),
+        Benchmark('M/AVL-Delete', 'delete', 'extract minimum, balance, $<$', ['-a 2', '-m 1']),
         ]),        
     BenchmarkGroup("RBT", ['-m=1', '-a=2'], [
-        Benchmark('RBT-BalanceL', 'balance left', '', ['-m=1', '-a=2']),
-        Benchmark('RBT-BalanceR', 'balance right', '', ['-m=1', '-a=2']),
-        Benchmark('RBT-Insert', 'insert', 'balance left, right, $\\leq$, $\\neq$', ['-m=1', '-a=2'])
+        Benchmark('N/RBT-BalanceL', 'balance left', '', ['-m=1', '-a=2']),
+        Benchmark('N/RBT-BalanceR', 'balance right', '', ['-m=1', '-a=2']),
+        Benchmark('M/RBT-Insert', 'insert', 'balance left, right, $\\leq$, $\\neq$', ['-m=1', '-a=2'])
         ]),
     BenchmarkGroup("User", [], [
-        Benchmark('Evaluator', 'desugar AST', '0, 1, 2'),
-        Benchmark('AddressBook-Make', 'make address book', 'is private', ['-a=2']),
-        Benchmark('AddressBook-Merge', 'merge address books', 'append', ['-a=2'])
+        Benchmark('C1/AddressBook-Make', 'make address book', 'is private', ['-a=2']),
+        Benchmark('N/AddressBook-Merge', 'merge address books', 'append', ['-a=2'])
+        ]),
+    BenchmarkGroup("Resyn", [], [
+        Benchmark('Resyn/List-Triple1', 'triple1', 'append'),
+        Benchmark('Resyn/List-Triple2', 'triple2', 'append', ['-a=4']),
+        Benchmark('Resyn/List-Concat', 'list concat linear', 'append'),
+        Benchmark('Resyn/List-Intersect', 'list intersection', 'member', ['-f=AllArguments']),
+        Benchmark('Resyn/List-Diff', 'list diff', 'member', ['-f=AllArguments']),
+        Benchmark('Resyn/List-Insert-Fine', 'list insert'),
+        Benchmark('Resyn/List-Range', 'list range', '', ['-a=4']),
+        Benchmark('Resyn/List-LenCompare', 'list length compare')
+        ]),
+    BenchmarkGroup("Symplexity", [], [
+        Benchmark('Synplexity/BinarySearch', 'BinarySearch', ''),
+        Benchmark('Synplexity/nTimesM_log', 'prod', ''),
+        Benchmark('Synplexity/List-MergeSort2', 'split, merge', ['-m=3']),
         ])
 ]
 
@@ -164,6 +170,10 @@ def run_benchmark(name, opts, default_opts):
       logfile.write(name + '\n')
       logfile.seek(0, os.SEEK_END)
       # Run Synquid on the benchmark:
+      print SYNQUID_CMD
+      print COMMON_OPTS
+      print opts
+      print name
       return_code = call([SYNQUID_CMD] + COMMON_OPTS + opts + [name + '.sq'], stdout=logfile, stderr=logfile)
       end = time.time()
 
@@ -181,10 +191,10 @@ def run_benchmark(name, opts, default_opts):
           print Back.GREEN + Fore.GREEN + Style.BRIGHT + 'OK' + Style.RESET_ALL,
 
       variant_options = [   # Command-line options to use for each variant of Synquid
-            ('def', default_opts),
-            ('nrt', opts + INCREMENTAL_OFF_OPT),
-            ('ncc', opts + CONSISTENCY_OFF_OPT),
-            ('nmus', opts + BFS_ON_OPT)
+          #  ('def', default_opts),
+          #  ('nrt', opts + INCREMENTAL_OFF_OPT),
+          #  ('ncc', opts + CONSISTENCY_OFF_OPT),
+          #  ('nmus', opts + BFS_ON_OPT)
         ]
 
       # Run each variant:
@@ -320,6 +330,7 @@ if __name__ == '__main__':
                 print b.str() + Back.YELLOW + Fore.YELLOW + Style.BRIGHT + 'SKIPPED' + Style.RESET_ALL
             else:
                 print b.str()
+          
                 run_benchmark(b.name, b.options, group.default_options)
                 with open(DUMPFILE, 'w') as data_dump:
                     pickle.dump(results, data_dump)    
@@ -330,9 +341,9 @@ if __name__ == '__main__':
     write_latex()
 
     # Compare with previous solutions and print the diff
-    if os.path.isfile(ORACLE_FILE) and (not cl_opts.small):
-        fromlines = open(ORACLE_FILE).readlines()
-        tolines = open(LOGFILE, 'U').readlines()
-        diff = difflib.unified_diff(fromlines, tolines, n=0)
-        print
-        sys.stdout.writelines(diff)
+    #if os.path.isfile(ORACLE_FILE) and (not cl_opts.small):
+    #    fromlines = open(ORACLE_FILE).readlines()
+    #    tolines = open(LOGFILE, 'U').readlines()
+    #    diff = difflib.unified_diff(fromlines, tolines, n=0)
+    #    print
+    #    sys.stdout.writelines(diff)

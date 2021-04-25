@@ -1,0 +1,14 @@
+
+
+
+dec :: x: Int -> {Int | _v ==  x - 1}
+div2 :: x: Int -> {Int | _v == x / 2}
+even :: x: Int -> {Bool | _v == ( x% 2 == 0)}
+plus :: x: Int -> y: Int -> {Int | _v ==  x + y}
+double :: x: Int -> {Int | _v ==  x + x}
+
+eqz :: x: Int -> {Bool | _v == (x == 0)}
+
+nTimesM |*| (0,1,0) :: n: {Int | _v >= 0} -> m: {Int | _v >0 } -> {Int | _v ==m*n}
+
+nTimesM = ??

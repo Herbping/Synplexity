@@ -179,7 +179,8 @@ defaultExplorerParams = ExplorerParams {
   _symmetryReduction = False,
   _context = id,
   _sourcePos = noPos,
-  _explorerLogLevel = 0
+  _explorerLogLevel = 0,
+  _rName = "None"
 }
 
 -- | Parameters for constraint solving

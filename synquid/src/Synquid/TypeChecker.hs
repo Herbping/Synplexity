@@ -18,6 +18,7 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import qualified Data.Foldable as F
 import Control.Monad.Logic
+import Data.Maybe
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Applicative hiding (empty)
@@ -30,7 +31,7 @@ import Debug.Trace
 reconstruct :: MonadHorn s => ExplorerParams -> TypingParams -> Goal -> s (Either ErrorMessage RProgram)
 reconstruct eParams tParams goal = do
     initTS <- initTypingState (gEnvironment goal) (gSpec goal)
-    runExplorer (eParams { _sourcePos = gSourcePos goal }) tParams (Reconstructor reconstructTopLevel) initTS go
+    runExplorer (eParams { _sourcePos = gSourcePos goal, _rName = gName goal }) tParams (Reconstructor reconstructTopLevel) initTS go
   where
     go = do
       pMain <- reconstructTopLevel goal { gDepth = _auxDepth eParams }     -- Reconstruct the program
@@ -40,28 +41,147 @@ reconstruct eParams tParams goal = do
 reconstructTopLevel :: MonadHorn s => Goal -> Explorer s RProgram
 reconstructTopLevel (Goal funName env (ForallT a sch) complexity impl depth pos s) = reconstructTopLevel (Goal funName (addTypeVar a env) sch complexity impl depth pos s)
 reconstructTopLevel (Goal funName env (ForallP sig sch) complexity impl depth pos s) = reconstructTopLevel (Goal funName (addBoundPredicate sig env) sch complexity impl depth pos s)
-reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT _ _ _)) complexity impl depth _ synth) =  local (set (_1 . auxDepth) depth) reconstructFix
+reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT x xArg tRes)) complexity impl depth _ synth) =  local (set (_1 . auxDepth) depth) reconstructFix
   where
     reconstructFix = do
       let typ' = renameAsImpl (isBound env) impl typ
       recCalls <- runInSolver (currentAssignment typ') >>= recursiveCalls synth complexity
-      polymorphic <- traceShow ("recCalls", recCalls) $ asks . view $ _1 . polyRecursion
-      predPolymorphic <- traceShow ("polymorphic", polymorphic) $ asks . view $ _1 . predPolyRecursion
-      let tvs = traceShow ("predPolymorphic", predPolymorphic) $  env ^. boundTypeVars
-      let pvs = traceShow ("tvs", tvs) $ env ^. boundPredicates
-      let predGeneralized sch =  traceShow ("pvs", pvs) $ if predPolymorphic then foldr ForallP sch pvs else sch -- Version of @t'@ generalized in bound predicate variables of the enclosing function
+      polymorphic <- asks . view $ _1 . polyRecursion
+      predPolymorphic <- asks . view $ _1 . predPolyRecursion
+      -- let tvs = traceShow ("env",(allSymbols env' )) $ env ^. boundTypeVars
+      let tvs =  env ^. boundTypeVars
+      let pvs = env ^. boundPredicates
+      let predGeneralized sch =  if predPolymorphic then foldr ForallP sch pvs else sch -- Version of @t'@ generalized in bound predicate variables of the enclosing function
       let typeGeneralized sch = if polymorphic then foldr ForallT sch tvs else sch -- Version of @t'@ generalized in bound type variables of the enclosing function
-      let env' = foldr (\(f, t) -> addPolyVariable f (typeGeneralized . predGeneralized . Monotype $ t) . (shapeConstraints %~ Map.insert f (shape typ'))) env recCalls
-      let ctx p =  if null recCalls then p else Program (PFix (map fst recCalls) p) typ'
-      p <- inContext ctx  $ reconstructI env' typ' impl
-      return $ ctx p
+      let csymbols =  filter (\x -> elem x (  Map.keys  (allSymbolsComplexity env))) (map fst (Map.toList (allSymbols env)))
+      let envWithComplexity =  foldr (modifyEnvComplexity complexity x) env csymbols
+      let env' = foldr (\(f, t) -> addPolyVariable f (typeGeneralized . predGeneralized . Monotype $ t) . (shapeConstraints %~ Map.insert f (shape typ'))) envWithComplexity recCalls
+      writeLog 1 $ text "Symbols" <+> text (show csymbols)
+      let env'' =  traceShow ("env",(allSymbols env' )) $ case complexity of
+	      	Complexity 0 1 2 -> env' {_costBound = 0}
+      		Complexity 0 1 0 -> env' {_costBound = 1}
+	      	Complexity 1 0 0 -> env' {_costBound = 1}
+	      	Complexity 1 0 1 -> env' {_costBound = 2}
+      		Complexity 1 1 0 -> env' {_costBound = 2}
+	      	Complexity 2 0 0 -> env' {_costBound = 1}
+	      	Complexity 2 0 1 -> env' {_costBound = 2}
+	      	Complexity 2 0 2 -> env' {_costBound = 0}
+      		_ -> env'
 
+      let ctx p =  traceShow ("env",  typ', impl) $ if null recCalls then p else Program (PFix (map fst recCalls) p) typ'
+      p <- inContext ctx  $ reconstructI env'' typ' impl
+      return $ ctx p
+    
+    modifyEnvComplexity :: ComplexityAnnotation -> Id -> Id  -> Environment-> Environment
+    modifyEnvComplexity complexity argName   x env =
+    	case Map.lookup x (allSymbols env)  of 
+    		Nothing ->  env
+    		Just ft ->  let 
+    				RSComp auxComplexity@(Complexity auxP auxLogP _) _ = fromJust (Map.lookup x (allSymbolsComplexity env))
+    				Complexity p logP r = complexity
+    				env' = removeUnresolved x $ removeVariableComplexity x $removeVariable x env
+    			    in if ((auxP >= 2) && (p == 2) && (r < 2)) || ((r == 2) && (p == 2) && (auxP > 2)) || ( (p == 0) && (r == 2) && (logP == 1) && ((auxP>0) || (auxLogP > 1))) || ( p == 1 && logP == 0 && r == 2 && auxP > 1) || ((p,logP,r)==(1,0,0) && auxP+auxLogP>0)
+    			    	then  env'
+    			    	else  addPolyVariable x (modifyRschComplexity ft complexity auxComplexity argName) env'
+    			
+    				
+--    	let env' = removeVariable x env
+    	
+--    	return typ
+    
+    modifyRschComplexity :: RSchema -> ComplexityAnnotation -> ComplexityAnnotation -> Id -> RSchema
+    modifyRschComplexity  (ForallT a sch) complexity  auxComplexity x = (ForallT a $ modifyRschComplexity  sch complexity auxComplexity x   )
+
+    modifyRschComplexity (ForallP a sch) complexity auxComplexity x = (ForallP a $ modifyRschComplexity  sch complexity auxComplexity x )
+    
+    modifyRschComplexity (Monotype typ) complexity auxComplexity x =  (Monotype $ modifySymbolComplexity typ complexity auxComplexity x)
+    
+    modifySymbolComplexity :: TypeSkeleton Formula -> ComplexityAnnotation -> ComplexityAnnotation -> Id -> TypeSkeleton Formula 
+    modifySymbolComplexity (FunctionT x tArg tRes) complexity auxComplexity gArgName =
+    	case modifyRefComplexity  gArgName tArg complexity auxComplexity of
+    		Nothing -> FunctionT x tArg (modifySymbolComplexity tRes complexity auxComplexity gArgName)
+    		Just (argLt, _) -> FunctionT x (addRefinement tArg argLt) tRes
+    modifySymbolComplexity t _ _ _ = t
+    	
+    modifyRefComplexity argName (ScalarT IntT fml) complexity auxComplexity = case (complexity, auxComplexity) of 
+    	(Complexity 2 0 0, Complexity 1 0 0) -> Just ( valInt |>=| IntLit 0  |&| ( valInt |<=| intVar argName) ,
+                                                              valInt |>=| IntLit 0  |&|  (valInt |<=| intVar argName) )
+    	(Complexity 2 0 2, Complexity 1 0 0) -> Just ( valInt |>=| IntLit 0  |&| ( valInt |<=| intVar argName) ,
+                                                              valInt |>=| IntLit 0  |&|  (valInt |<=| intVar argName) )
+    	(Complexity 2 0 2, Complexity 2 0 0) -> Just ( valInt |>=| IntLit 0  |&| ( valInt |<=| intVar argName) ,
+                                                              valInt |>=| IntLit 0  |&|  (valInt |<=| intVar argName |*| intVar argName) )
+      	_ -> Nothing 
+      	
+    modifyRefComplexity argName (ScalarT dt@(DatatypeT name _ _) fml) complexity auxComplexity = case (complexity, auxComplexity) of 
+	(Complexity 2 0 0, Complexity 1 0 0) -> case env ^. datatypes . to (Map.! name) . wfMetric of
+		Nothing -> Nothing
+		Just mName -> let
+			metric x =  Pred IntS mName [x]
+			augMetric x =  if mName == "size"
+					then Pred IntS "size" [x]
+					else Pred IntS "len" [x]
+	        	argSort = toSort dt
+	        	in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName) ,
+                              metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName))
+	(Complexity 0 1 2, Complexity 0 1 0) -> case env ^. datatypes . to (Map.! name) . wfMetric of
+		Nothing -> Nothing
+		Just mName -> let
+			metric x =  Pred IntS mName [x]
+			augMetric x =  if mName == "size"
+					then Pred IntS "size" [x]
+					else Pred IntS "len" [x]
+	        	argSort = toSort dt
+	        	in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName) ,
+                              metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName))
+	(Complexity 1 0 2, Complexity 1 0 0) -> case env ^. datatypes . to (Map.! name) . wfMetric of
+		Nothing -> Nothing
+		Just mName -> let
+			metric x =  Pred IntS mName [x]
+			augMetric x =  if mName == "size"
+					then Pred IntS "size" [x]
+					else Pred IntS "len" [x]
+	        	argSort = toSort dt
+	        	in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName) ,
+                              metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName))
+	(Complexity 2 0 1, Complexity 1 0 0) -> case env ^. datatypes . to (Map.! name) . wfMetric of
+		Nothing -> Nothing
+		Just mName -> let
+			metric x =  Pred IntS mName [x]
+			augMetric x =  if mName == "size"
+					then Pred IntS "size" [x]
+					else Pred IntS "len" [x]
+	        	argSort = toSort dt
+	        	in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName) ,
+                              metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName))
+	(Complexity 2 0 2, Complexity 1 0 0) -> case env ^. datatypes . to (Map.! name) . wfMetric of
+		Nothing -> Nothing
+		Just mName -> let
+			metric x =  Pred IntS mName [x]
+			augMetric x =  if mName == "size"
+					then Pred IntS "len" [x]
+					else Pred IntS "len" [x]
+	        	argSort = toSort dt
+	        	in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName) |*| augMetric (Var argSort argName)  ,
+                              metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName) |*| augMetric (Var argSort argName) )
+	(Complexity 2 0 2, Complexity 2 0 0) -> case env ^. datatypes . to (Map.! name) . wfMetric of
+		Nothing -> Nothing
+		Just mName -> let
+			metric x =  Pred IntS mName [x]
+			augMetric x =  if mName == "size"
+					then Pred IntS "len" [x]
+					else Pred IntS "len" [x]
+	        	argSort = toSort dt
+	        	in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName) ,
+                              metric (Var argSort valueVarName) |>=| IntLit 0  |&| metric (Var argSort valueVarName) |<=| augMetric (Var argSort argName)  )
+	_ -> Nothing
+    	  
+    modifyRefComplexity _ _ _ _ = Nothing
     -- | 'recursiveCalls' @t@: name-type pairs for recursive calls to a function with type @t@ (0 or 1)
     recursiveCalls False complexity t = return [(funName, t)]
     recursiveCalls _ complexity t = do
-      fixStrategy <-traceShow ("t", t) asks . view $ _1 . fixStrategy
+      fixStrategy <- asks . view $ _1 . fixStrategy
       case fixStrategy of
-        AllArguments -> do recType <- fst <$> recursiveTypeTuple t ffalse; if recType == t then return [] else return [(funName, recType)]
+        AllArguments -> do recType <- fst <$> recursiveTypeTuple t ffalse complexity; if recType == t then return [] else return [(funName, recType)]
         FirstArgument -> do recType <- recursiveTypeFirst t complexity; if recType == t then return [] else return [(funName, recType)]
         DisableFixpoint -> return []
         Nonterminating -> return [(funName, t)]
@@ -69,22 +189,22 @@ reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT _ _ _)) complexit
     -- | 'recursiveTypeTuple' @t fml@: type of the recursive call to a function of type @t@ when a lexicographic tuple of all recursible arguments decreases;
     -- @fml@ denotes the disjunction @x1' < x1 || ... || xk' < xk@ of strict termination conditions on all previously seen recursible arguments to be added to the type of the last recursible argument;
     -- the function returns a tuple of the weakend type @t@ and a flag that indicates if the last recursible argument has already been encountered and modified
-    recursiveTypeTuple (FunctionT x tArg tRes) fml =
+    recursiveTypeTuple (FunctionT x tArg tRes) fml complexity=
       case terminationRefinement x tArg complexity of
         Nothing -> do
-          (tRes', seenLast) <- recursiveTypeTuple tRes fml
+          (tRes', seenLast) <- recursiveTypeTuple tRes fml complexity
           return (FunctionT x tArg tRes', seenLast)
         Just (argLt, argLe) -> do
           y <- freshVar env "x"
           let yForVal = Map.singleton valueVarName (Var (toSort $ baseTypeOf tArg) y)
-          (tRes', seenLast) <- recursiveTypeTuple (renameVar (isBound env) x y tArg tRes) (fml `orClean` substitute yForVal argLt)
+          (tRes', seenLast) <- recursiveTypeTuple (renameVar (isBound env) x y tArg tRes) (fml `orClean` substitute yForVal argLt) complexity
           if seenLast
             then return (FunctionT y (addRefinement tArg argLe) tRes', True) -- already encountered the last recursible argument: add a nonstrict termination refinement to the current one
             -- else return (FunctionT y (addRefinement tArg (fml `orClean` argLt)) tRes', True) -- this is the last recursible argument: add the disjunction of strict termination refinements
             else if fml == ffalse
                   then return (FunctionT y (addRefinement tArg argLt) tRes', True)
                   else return (FunctionT y (addRefinement tArg (argLe `andClean` (fml `orClean` argLt))) tRes', True) -- TODO: this version in incomplete (does not allow later tuple values to go up), but is much faster
-    recursiveTypeTuple t _ = return (t, False)
+    recursiveTypeTuple t _  _= return (t, False)
 
     -- | 'recursiveTypeFirst' @t fml@: type of the recursive call to a function of type @t@ when only the first recursible argument decreases
     recursiveTypeFirst (FunctionT x tArg tRes) complexity =
@@ -97,8 +217,10 @@ reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT _ _ _)) complexit
 
     -- | If argument is recursible, return its strict and non-strict termination refinements, otherwise @Nothing@
     terminationRefinement argName (ScalarT IntT fml) complexity = case complexity of
-      Complexity 0 1 0 -> Just ( valInt |>=| IntLit 0  |&| ((IntLit 2 |*| valInt |=| intVar argName) ||| (IntLit 2 |*| valInt |=| intVar argName |-| IntLit 1)),
-                                                              valInt |>=| IntLit 0  |&|  ((IntLit 2 |*| valInt |=| intVar argName) ||| (IntLit 2 |*| valInt |=| intVar argName |-| IntLit 1)))
+      Complexity 0 1 0 -> Just ( valInt |>=| IntLit 0  |&| valInt |<=| (intVar argName |/| IntLit 2 |+| IntLit 1) ,
+                                                              valInt |>=| IntLit 0  |&|  valInt |<=| (intVar argName |/| IntLit 2 |+| IntLit 1))
+      Complexity 1 1 0 -> Just ( valInt |>=| IntLit 0  |&| ((IntLit 2 |*| valInt |<=| intVar argName) ||| (IntLit 2 |*| valInt |<=| intVar argName |+| IntLit 4)),
+                                                              valInt |>=| IntLit 0  |&|  ((IntLit 2 |*| valInt |=| intVar argName) ||| (IntLit 2 |*| valInt |<=| intVar argName |+| IntLit 4)))
       _ -> Just ( valInt |>=| IntLit 0  |&|  valInt |<| intVar argName,
                                                               valInt |>=| IntLit 0  |&|  valInt |<=| intVar argName)
     terminationRefinement argName (ScalarT dt@(DatatypeT name _ _) fml) complexity = case complexity of
@@ -109,6 +231,15 @@ reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT _ _ _)) complexit
                       argSort = toSort dt
                     in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| ((IntLit 2 |*| metric (Var argSort valueVarName) |=| metric (Var argSort argName)) ||| (IntLit 2 |*| metric (Var argSort valueVarName) |=| metric (Var argSort argName) |-| IntLit 1)),
                               metric (Var argSort valueVarName) |>=| IntLit 0  |&| ((IntLit 2 |*| metric (Var argSort valueVarName) |=| metric (Var argSort argName)) ||| (IntLit 2 |*| metric (Var argSort valueVarName) |=| metric (Var argSort argName) |-| IntLit 1)))
+      Complexity 1 1 0 -> case env ^. datatypes . to (Map.! name) . wfMetric of
+        Nothing -> Nothing
+        Just mName -> let
+                      metric x =  Pred IntS mName [x]
+                      argSort = toSort dt
+                    in Just ( metric (Var argSort valueVarName) |>=| IntLit 0  |&| ((IntLit 2 |*| metric (Var argSort valueVarName) |<=| metric (Var argSort argName)) ||| (IntLit 2 |*| metric (Var argSort valueVarName) |<=| metric (Var argSort argName) |+| IntLit 4)),
+                              metric (Var argSort valueVarName) |>=| IntLit 0  |&| ((IntLit 2 |*| metric (Var argSort valueVarName) |<=| metric (Var argSort argName)) ||| (IntLit 2 |*| metric (Var argSort valueVarName) |<=| metric (Var argSort argName) |+| IntLit 4)))
+            
+            
       _ -> case env ^. datatypes . to (Map.! name) . wfMetric of
         Nothing -> Nothing
         Just mName -> let

@@ -164,7 +164,7 @@ power Cons {} = 9
 power Unary {} = 8
 power (Binary op _ _)
   | op `elem` [Times, Intersect] = 7
-  | op `elem` [Plus, Minus, Union, Diff, Mod] = 6
+  | op `elem` [Plus, Minus, Union, Diff, Mod, Div] = 6
   | op `elem` [Eq, Neq, Lt, Le, Gt, Ge, Member, Subset] = 5
   | op `elem` [And, Or] = 4
   | op `elem` [Implies] = 3

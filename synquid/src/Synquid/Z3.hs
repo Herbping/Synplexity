@@ -270,6 +270,7 @@ toAST expr = case expr of
         Le -> mkLe
         Ge -> mkGe
         Mod -> mkMod
+        Div -> mkDiv
         Times -> list2 mkMul
         Plus -> list2 mkAdd
         Minus -> list2 mkSub

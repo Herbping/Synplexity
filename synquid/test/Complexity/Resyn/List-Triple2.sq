@@ -1,0 +1,32 @@
+data List a where
+	Nil :: List a
+	Cons :: x: a -> xs: List a -> List a
+
+
+
+termination measure len :: List a -> {Int | _v >= 0} where
+  Nil -> 0
+  Cons x xs -> 1 + len xs  
+  
+measure elems :: List a -> Set a where
+  Nil -> []
+  Cons x xs -> [x] + elems xs  	
+  
+data Pair a where
+  Pair :: xs : List a -> ys : List a -> Pair a
+termination measure plen :: Pair a -> {Int | _v >= 0} where
+  Pair xs ys -> len ys
+  
+measure pelems :: Pair a -> Set a where
+  Pair xs ys -> elems xs  + elems ys
+  
+measure fst :: Pair a -> List a where
+  Pair xs ys -> xs
+  
+measure snd :: Pair a -> List a where
+  Pair xs ys -> ys
+
+append |*| (0, 0, 0) :: xys: Pair a  -> {List a | len _v == len (fst xys) + len (snd xys) && elems _v == pelems xys }
+
+triple |*| (1, 0, 2) :: xs: List a -> {List a | len _v == len xs + len xs + len xs}
+triple = ??

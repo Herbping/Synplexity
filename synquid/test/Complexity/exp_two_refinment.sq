@@ -13,6 +13,6 @@ even :: x: Nat -> {Bool | _v == ((val x) % 2 == 0)}
 incTwo :: x: Int -> {Int | _v ==  x + 1}
 double :: x: Int -> {Int | _v ==  x + x}
 
-exp_two |*| (0,1,0) :: n: Nat -> {Int | _v ==val n}
+exp_two |*| (0,1,0) :: n: Nat -> {Int | _v == 2 * (val n)}
 
 exp_two = ??

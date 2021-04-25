@@ -1,0 +1,66 @@
+\multirow{14}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{List}}} & is empty & 2 & true, false & 1 & 9 & 16 & 0.23 & - & - & - & - \\
+ & is member & 3 & true, false, $=$, $\neq$ & 2 & 9 & 41 & 0.50 & - & - & - & - \\
+ & duplicate each element & 2 &  & 1 & 10 & 26 & 0.27 & - & - & - & - \\
+ & replicate & 2 & 0, inc, dec, $\leq$, $\neq$ & 1 & 7 & 31 & 0.27 & - & - & - & - \\
+ & append two lists & 2 &  & 1 & 11 & 25 & 0.50 & - & - & - & - \\
+ & concatenate list of lists & 4 & append & 3 & 14 & 46 & 0.46 & - & - & - & - \\
+ & take first $n$ elements & 2 & 0, inc, dec, $\leq$, $\neq$ & 1 & 11 & 34 & 0.41 & - & - & - & - \\
+ & drop first $n$ elements & 2 & 0, inc, dec, $\leq$, $\neq$ & 1 & 14 & 30 & 0.38 & - & - & - & - \\
+ & delete value & 3 & $=$, $\neq$ & 2 & 11 & 49 & 0.38 & - & - & - & - \\
+ & zip & 2 &  & 1 & 13 & 32 & 0.25 & - & - & - & - \\
+ & $i$-th element & 2 & 0, inc, dec, $\leq$, $\neq$ & 1 & 16 & 30 & 0.26 & - & - & - & - \\
+ & index of element & 3 & 0, inc, dec, $=$, $\neq$ & 2 & 13 & 43 & 0.47 & - & - & - & - \\
+ & insert at end & 3 &  & 2 & 26 & 42 & 0.54 & - & - & - & - \\
+ & reverse & 3 & insert at end & 2 & 20 & 35 & 0.41 & - & - & - & - \\
+\hline\multirow{5}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{Unique list}}} & insert & 3 & $=$, $\neq$ & 2 & 13 & 49 & 0.43 & - & - & - & - \\
+ & delete & 3 & $=$, $\neq$ & 2 & 13 & 45 & 0.44 & - & - & - & - \\
+ & remove duplicates & 3 & is member & 2 & 10 & 44 & 0.41 & - & - & - & - \\
+ & remove adjacent dupl. & 4 & $=$, $\neq$ & 3 & 11 & 62 & 1.52 & - & - & - & - \\
+ & integer range & 3 & 0, inc, dec, $\leq$, $\neq$ & 2 & 18 & 46 & 3.81 & - & - & - & - \\
+\hline\multirow{3}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{Strictly sorted list}}} & insert & 3 & $<$ & 2 & 11 & 64 & 0.51 & - & - & - & - \\
+ & delete & 3 & $<$ & 2 & 11 & 52 & 0.40 & - & - & - & - \\
+ & intersect & 3 & $<$ & 2 & 11 & 63 & 0.77 & - & - & - & - \\
+\hline\multirow{10}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{Sorting}}} & insert (sorted) & 3 & $\leq$, $\neq$ & 2 & 11 & 57 & 0.62 & - & - & - & - \\
+ & insertion sort & 5 & insert (sorted) & 4 & 17 & 59 & 0.43 & - & - & - & - \\
+ & extract minimum & 5 & $\leq$, $\neq$ & 4 & 26 & 71 & 7.33 & - & - & - & - \\
+ & selection sort & 7 & extract minimum & 6 & 17 & 71 & 0.81 & - & - & - & - \\
+ & balanced split & 4 &  & 3 & 13 & 33 & 0.45 & - & - & - & - \\
+ & merge & 3 & $\leq$, $\neq$ & 2 & 20 & 64 & 3.91 & - & - & - & - \\
+ & merge sort & 7 & split, merge & 6 & 17 & 86 & 107.02 & - & - & - & - \\
+ & partition & 5 & $\leq$ & 4 & 30 & 71 & 5.09 & - & - & - & - \\
+ & append with pivot & 3 &  & 2 & 31 & 45 & 0.62 & - & - & - & - \\
+ & quick sort & 7 & partition, append w/pivot & 6 & 17 & 77 & 21.10 & - & - & - & - \\
+\hline\multirow{3}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{Tree}}} & is member & 3 & false, not, or, $=$ & 2 & 9 & 63 & 0.75 & - & - & - & - \\
+ & node count & 2 & 0, 1, + & 1 & 7 & 34 & 0.51 & - & - & - & - \\
+ & preorder & 3 & append & 2 & 11 & 45 & 0.50 & - & - & - & - \\
+\hline\multirow{4}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{BST}}} & is member & 3 & true, false, $\leq$, $\neq$ & 2 & 9 & 72 & 0.41 & - & - & - & - \\
+ & insert & 3 & $\leq$, $\neq$ & 2 & 11 & 90 & 1.54 & - & - & - & - \\
+ & delete & 3 & $\leq$, $\neq$ & 2 & 11 & 103 & 11.91 & - & - & - & - \\
+ & BST sort & 7 & $\leq$, $\neq$ & 6 & 14 & 90 & 0.62 & - & - & - & - \\
+\hline\multirow{5}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{Binary Heap}}} & is member & 3 & false, not, or, $\leq$, $\neq$ & 2 & 9 & 78 & 0.86 & - & - & - & - \\
+ & insert & 3 & $\leq$, $\neq$ & 2 & 11 & 90 & 1.06 & - & - & - & - \\
+ & 1-element constructor & 3 & $\leq$, $\neq$ & 2 & 8 & 44 & 0.26 & - & - & - & - \\
+ & 2-element constructor & 3 & $\leq$, $\neq$ & 2 & 9 & 91 & 0.40 & - & - & - & - \\
+ & 3-element constructor & 3 & $\leq$, $\neq$ & 2 & 10 & 274 & 3.96 & - & - & - & - \\
+\hline\multirow{6}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{AVL}}} & rotate left & 4 & inc & 3 & 39 & 85 & 4.93 & - & - & - & - \\
+ & rotate right & 4 & inc & 3 & 40 & 85 & 14.94 & - & - & - & - \\
+ & balance & 5 & rotate, nodeHeight, isSkewed, isLHeavy, isRHeavy & 4 & 37 & 183 & 2.65 & - & - & - & - \\
+ & insert & 4 & balance, $<$ & 3 & 25 & 106 & 3.49 & - & - & - & - \\
+ & extract minimum & 6 & $<$ & 5 & 18 & 106 & 4.58 & - & - & - & - \\
+ & delete & 6 & extract minimum, balance, $<$ & 5 & 21 & 128 & 5.01 & - & - & - & - \\
+\hline\multirow{3}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{RBT}}} & balance left & 10 &  & 9 & 89 & 204 & 7.10 & - & - & - & - \\
+ & balance right & 10 &  & 9 & 89 & 204 & 5.02 & - & - & - & - \\
+ & insert & 10 & balance left, right, $\leq$, $\neq$ & 9 & 34 & 146 & 2.63 & - & - & - & - \\
+\hline\multirow{2}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{User}}} & make address book & 4 & is private & 3 & 11 & 61 & 1.25 & - & - & - & - \\
+ & merge address books & 4 & append & 3 & 14 & 46 & 0.68 & - & - & - & - \\
+\hline\multirow{8}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{Resyn}}} & triple1 & 3 & append & 2 & 14 & 34 & 0.41 & - & - & - & - \\
+ & triple2 & 7 & append & 6 & 17 & 64 & 0.67 & - & - & - & - \\
+ & list concat linear & 4 & append & 3 & 17 & 49 & 0.69 & - & - & - & - \\
+ & list intersection & 5 & member & 4 & 14 & 87 & 0.62 & - & - & - & - \\
+ & list diff & 5 & member & 4 & 14 & 95 & 0.99 & - & - & - & - \\
+ & list insert & 4 &  & 3 & 14 & 82 & 0.63 & - & - & - & - \\
+ & list range & 6 &  & 5 & 23 & 63 & 2.16 & - & - & - & - \\
+ & list length compare & 2 &  & 1 & 10 & 27 & 3.58 & - & - & - & - \\
+\hline\multirow{2}{*}{\parbox{1cm}{space{-0.85aselineskip}\center{Symplexity}}} & BinarySearch & 6 &  & 5 & 12 & 50 & 1.36 & - & - & - & - \\
+ & prod & 1 &  & 0 & 11 & 34 & 23.02 & - & - & - & - \\
+\hline

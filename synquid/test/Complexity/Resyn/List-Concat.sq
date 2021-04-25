@@ -1,0 +1,25 @@
+data List a where
+  Nil :: List a
+  Cons :: x: a -> xs: List a -> List a
+    
+termination measure len1 :: List a -> {Int | _v >= 0} where
+  Nil -> 0
+  Cons x xs -> 1 + len1 xs  
+  
+data ListOfLists a where
+  Nil2 :: ListOfLists a
+  Cons2 :: x: List a -> xs: ListOfLists a -> ListOfLists a
+  
+termination measure len :: ListOfLists a -> {Int | _v >= 0} where
+  Nil2 -> 0
+  Cons2 x xs -> 1 + len xs
+  
+measure sumLen :: ListOfLists a -> {Int | _v >= 0} where
+  Nil2 -> 0
+  Cons2 x xs -> sumLen xs + len1 x
+
+append :: xs: List a -> ys: List a -> { List a | len1 _v == len1 xs + len1 ys }
+
+concat |*| (1,0,1)  :: xss: ListOfLists a -> acc: List a -> { List a | len1 _v == sumLen xss + len1 acc }
+concat = ?? 
+

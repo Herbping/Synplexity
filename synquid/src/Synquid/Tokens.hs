@@ -24,6 +24,7 @@ unOpTokens = fromList [ (Neg, "-")
 binOpTokens :: Map BinOp String
 binOpTokens = fromList [ (Times,     "*")
                        , (Mod,       "%")
+                       , (Div,       "/")
                        , (Plus,      "+")
                        , (Minus,     "-")
                        , (Eq,        "==")

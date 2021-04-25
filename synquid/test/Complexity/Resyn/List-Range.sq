@@ -1,0 +1,33 @@
+data IList a where
+	INil :: IList a
+	ICons :: x: a -> xs: IList {a | x < _v} -> IList a
+  
+termination measure ilen :: IList a -> {Int | _v >= 0} where
+  INil -> 0
+  ICons x xs -> 1 + ilen xs  
+
+measure ielems :: IList a -> Set a where
+  INil -> []
+  ICons x xs -> [x] + ielems xs
+
+inc :: x: Int -> {Int | _v == x + 1}
+dec :: x: Int -> {Int | _v == x - 1}
+
+
+data Pair  where
+  Pair :: x : Int -> y : {Int | _v >= x } -> Pair 
+  
+termination measure len :: Pair-> {Int | _v >= 0} where
+  Pair x y -> y-x
+  
+  
+measure fst :: Pair -> Int where
+  Pair xs ys -> xs
+  
+measure snd :: Pair -> Int where
+  Pair xs ys -> ys
+  
+qualifier { x >= y }
+
+range |*| (1, 0, 0) :: p : Pair-> {IList {Int | (fst p <= _v) && (_v <= snd p)} | ilen _v == (snd p - fst p)}
+range = ?? 

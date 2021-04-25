@@ -114,7 +114,7 @@ resolveDeclaration (TypeDecl typeName typeVars typeBody) = do
               text "in the definition of type synonym" <+> text typeName <+> text "are undefined")
 resolveDeclaration (FuncDecl funcName typeSchema) = addNewSignature funcName typeSchema
 resolveDeclaration (FuncComplexityDecl funcName (RSComp complexity typeSchema)) = do
-  addNewSignature funcName typeSchema
+  addNewSignatureComplexity funcName (RSComp complexity typeSchema)
   goalComplexity .= complexity
 resolveDeclaration d@(DataDecl dtName tParams pVarParams ctors) = do
   let
@@ -512,6 +512,8 @@ resolveFormula (Binary op l r) = do
             else enforceSame sl IntS >> enforceSame sr IntS >> return op
       | op == Mod
         = enforceSame sl IntS >> enforceSame sr IntS >> return op
+      | op == Div
+        = enforceSame sl IntS >> enforceSame sr IntS >> return op
       | op == Le
         = if isSetS sl
             then do
@@ -658,6 +660,12 @@ addNewSignature name sch = do
   ifM (Set.member name <$> use (environment . constants)) (throwResError $ text "Duplicate declaration of function" <+> text name) (return ())
   environment %= addPolyConstant name sch
   environment %= addUnresolvedConstant name sch
+
+addNewSignatureComplexity name schc@(RSComp complexity typeSchema) = do
+  ifM (Set.member name <$> use (environment . constants)) (throwResError $ text "Duplicate declaration of function" <+> text name) (return ())
+  environment %= addPolyConstantComplexity name schc
+  environment %= addPolyConstant name typeSchema
+  environment %= addUnresolvedConstant name typeSchema
 
 
 substituteTypeSynonym name tArgs = do

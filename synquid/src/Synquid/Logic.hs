@@ -101,7 +101,7 @@ data UnOp = Neg | Not
 
 -- | Binary operators
 data BinOp =
-    Times | Plus | Minus | Mod |          -- ^ Int -> Int -> Int
+    Times | Plus | Minus | Mod | Div |         -- ^ Int -> Int -> Int
     Eq | Neq |                      -- ^ a -> a -> Bool
     Lt | Le | Gt | Ge |             -- ^ Int -> Int -> Bool
     And | Or | Implies | Iff |      -- ^ Bool -> Bool -> Bool
@@ -152,6 +152,7 @@ fneg = Unary Neg
 fnot = Unary Not
 (|*|) = Binary Times
 (|%|) = Binary Mod
+(|/|) = Binary Div
 (|+|) = Binary Plus
 (|-|) = Binary Minus
 (|=|) = Binary Eq
@@ -259,7 +260,7 @@ sortOf (Unary op _)
   | op == Neg                                    = IntS
   | otherwise                                    = BoolS
 sortOf (Binary op e1 _)
-  | op == Times || op == Plus || op == Minus || op == Mod     = IntS
+  | op == Times || op == Plus || op == Minus || op == Mod  || op == Div   = IntS
   | op == Union || op == Intersect || op == Diff = sortOf e1
   | otherwise                                    = BoolS
 sortOf (Ite _ e1 _)                              = sortOf e1
