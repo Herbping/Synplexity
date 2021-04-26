@@ -28,7 +28,7 @@ import Debug.Trace
 
 -- | 'reconstruct' @eParams tParams goal@ : reconstruct missing types and terms in the body of @goal@ so that it represents a valid type judgment;
 -- return a type error if that is impossible
-reconstruct :: MonadHorn s => ExplorerParams -> TypingParams -> Goal -> s (Either ErrorMessage RProgram)
+reconstruct :: MonadHorn s => ExplorerParams -> TypingParams -> Goal -> s (Either ErrorMessage (RProgram, Int, Int))
 reconstruct eParams tParams goal = do
     initTS <- initTypingState (gEnvironment goal) (gSpec goal)
     runExplorer (eParams { _sourcePos = gSourcePos goal, _rName = gName goal }) tParams (Reconstructor reconstructTopLevel) initTS go
@@ -57,7 +57,7 @@ reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT x xArg tRes)) com
       let envWithComplexity =  foldr (modifyEnvComplexity complexity x) env csymbols
       let env' = foldr (\(f, t) -> addPolyVariable f (typeGeneralized . predGeneralized . Monotype $ t) . (shapeConstraints %~ Map.insert f (shape typ'))) envWithComplexity recCalls
       writeLog 1 $ text "Symbols" <+> text (show csymbols)
-      let env'' =  traceShow ("env",(allSymbols env' )) $ case complexity of
+      let env'' =   case complexity of
 	      	Complexity 0 1 2 -> env' {_costBound = 0}
       		Complexity 0 1 0 -> env' {_costBound = 1}
 	      	Complexity 1 0 0 -> env' {_costBound = 1}
@@ -68,7 +68,7 @@ reconstructTopLevel (Goal funName env (Monotype typ@(FunctionT x xArg tRes)) com
 	      	Complexity 2 0 2 -> env' {_costBound = 0}
       		_ -> env'
 
-      let ctx p =  traceShow ("env",  typ', impl) $ if null recCalls then p else Program (PFix (map fst recCalls) p) typ'
+      let ctx p =  if null recCalls then p else Program (PFix (map fst recCalls) p) typ'
       p <- inContext ctx  $ reconstructI env'' typ' impl
       return $ ctx p
     

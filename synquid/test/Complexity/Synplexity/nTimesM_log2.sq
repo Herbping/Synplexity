@@ -1,0 +1,8 @@
+dec :: x: Int -> {Int | _v ==  x - 1}
+plus :: x: Int -> y: Int -> {Int | _v ==  x + y}
+
+eqz :: x: Int -> {Bool | _v == (x == 0)}
+
+nTimesM |*| (1,0,0) :: n: {Int | _v >= 0} -> m: {Int | _v >0 } -> {Int | _v ==m*n}
+
+nTimesM = ??

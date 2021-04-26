@@ -1,0 +1,38 @@
+leq :: x: a -> y: a -> {Bool | _v == (x <= y)}
+true :: {Bool | _v}
+false :: {Bool | !_v}
+
+
+data IList a <p :: Int -> a -> Bool> where
+	INil :: IList a <p>
+	ICons :: x: {a | p 0 _v} -> xs: IList {a | x <= _v} <{p (_0 + 1) _1}> -> IList a <p>
+
+data Pair a b c where
+	Pair :: x: a -> y: b -> z: c -> Pair a b c
+  
+measure fst :: Pair a b c -> a where
+  Pair x y z -> x
+  
+measure snd :: Pair a b c -> b where
+  Pair x y z -> y
+  
+measure thd :: Pair a b c -> c where
+  Pair x y z -> z
+
+termination measure ilen :: IList a -> {Int | _v >= 0} where
+  INil -> 0
+  ICons x xs -> 1 + ilen xs
+
+measure ielems :: IList a -> Set a where
+  INil -> []
+  ICons x xs -> [x] + ielems xs
+
+
+inline abs x = if x >= 0 then x else -x
+
+
+split :: <p :: Int -> a -> Bool> . xs: IList a <p> -> {Pair {IList a <p>| abs (ilen xs - 1 - ilen _v  * 2) <= 1} (IList a <p>) a | ilen (fst _v) + ilen (snd _v) == ilen xs -1 && ielems (fst _v) + ielems (snd _v) + [thd _v] == ielems xs }	
+
+
+binarySearch  |*| (1,0,0) :: <p :: Int -> a -> Bool> . x: a -> xs: IList a <p> ->  {Bool  | _v == (x in ielems xs)   }
+binarySearch = ??

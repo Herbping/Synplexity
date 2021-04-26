@@ -233,6 +233,13 @@ defaultSynquidParams = SynquidParams {
 -- | Parse and resolve file, then synthesize the specified goals
 runOnFile :: SynquidParams -> ExplorerParams -> HornSolverParams
                            -> String -> [String] -> IO ()
+                           
+get1st (a, _, _,_) = a
+get2nd (_,a, _,_) = a
+get3rd (_, _,a,_) = a
+get4th (_, _, _,a) = a
+
+                           
 runOnFile synquidParams explorerParams solverParams file libs = do
   declsByFile <- parseFromFiles (libs ++ [file])
 
@@ -267,17 +274,23 @@ runOnFile synquidParams explorerParams solverParams file libs = do
       mProg <- synthesize explorerParams solverParams goal cquals tquals
       case mProg of
         Left typeErr -> pdoc (pretty typeErr) >> pdoc empty >> exitFailure
-        Right prog -> do
+        Right (prog, ec, sc) -> do
           when (gSynthesize goal) $ pdoc (prettySolution goal prog) >> pdoc empty
-          return (goal, prog)
+
+          
+          return (goal, prog, ec, sc)
     printStats results declsByFile = do
-      let env = gEnvironment (fst $ head results)
+      let env = gEnvironment (get1st $ head results)
+      let ec = sum $ map get3rd results
+      let sc = sum $ map get4th results
       let measureCount = Map.size $ _measures $ env
-      let specSize = sum $ map (typeNodeCount . toMonotype . unresolvedSpec . fst) results
-      let solutionSize = sum $ map (programNodeCount . snd) results
+      let specSize = sum $ map (typeNodeCount . toMonotype . unresolvedSpec . get1st) results
+      let solutionSize = sum $ map (programNodeCount . get2nd) results
       pdoc $ vsep $ [
                 parens (text "Goals:" <+> pretty (length results)),
                 parens (text "Measures:" <+> pretty measureCount),
                 parens (text "Spec size:" <+> pretty specSize),
                 parens (text "Solution size:" <+> pretty solutionSize),
+                parens (text "EC:" <+> pretty ec),
+                parens (text "SC:" <+> pretty sc),
                 empty]

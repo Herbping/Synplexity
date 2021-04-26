@@ -103,7 +103,9 @@ type PartialMemo = Map PartialKey (Map RProgram (Int, Environment))
 data PersistentState = PersistentState {
   _termMemo :: Memo,
   _partialFailures :: PartialMemo,
-  _typeErrors :: [ErrorMessage]
+  _typeErrors :: [ErrorMessage],
+  _enumeratedTerms :: Int,
+  _shrinkedTerms :: Int
 }
 
 makeLenses ''PersistentState
@@ -118,17 +120,17 @@ type Explorer s = StateT ExplorerState (
 data Reconstructor s = Reconstructor (Goal -> Explorer s RProgram)
 
 -- | 'runExplorer' @eParams tParams initTS go@ : execute exploration @go@ with explorer parameters @eParams@, typing parameters @tParams@ in typing state @initTS@
-runExplorer :: MonadHorn s => ExplorerParams -> TypingParams -> Reconstructor s -> TypingState -> Explorer s a -> s (Either ErrorMessage a)
+runExplorer :: MonadHorn s => ExplorerParams -> TypingParams -> Reconstructor s -> TypingState -> Explorer s a -> s (Either ErrorMessage (a, Int, Int))
 runExplorer eParams tParams topLevel initTS go = do
-  (ress, PersistentState _ _ errs) <- runStateT (observeManyT 1 $ runReaderT (evalStateT go initExplorerState) (eParams, tParams, topLevel)) (PersistentState Map.empty Map.empty [])
+  (ress, PersistentState _ _ errs ec sc) <- runStateT (observeManyT 1 $ runReaderT (evalStateT go initExplorerState) (eParams, tParams, topLevel)) (PersistentState Map.empty Map.empty [] 0 0) 
   case ress of
     [] ->
       case errs of
         [] -> return $ Left impossible
-        (e:_) -> return $ Left e
-    (res : _) -> return $ Right res
+        (e:_) -> return $ Left e 
+    (res : _) -> return $ Right (res, ec, sc)
   where
-    initExplorerState = ExplorerState initTS [] Map.empty Map.empty Map.empty Map.empty 0
+    initExplorerState = ExplorerState initTS [] Map.empty Map.empty Map.empty Map.empty 0  
     impossible = ErrorMessage {
         emKind = SynthesisError,
         emPosition = _sourcePos eParams,
@@ -377,6 +379,11 @@ generateEAt env typ d = do
     then do -- Do not use memoization
       p <- enumerateAt env typ d
       checkE env typ p
+      currEC <- getEC
+      let currEC' = currEC + 1
+      putEC currEC'
+      
+      
 
       return p
     else do -- Try to fetch from memoization store
@@ -392,6 +399,9 @@ generateEAt env typ d = do
         Nothing -> do -- Nothing found: enumerate and memoize
           writeLog 3 (text "Nothing found for:" <+> pretty memoKey)
           p <- enumerateAt env typ d
+          currEC <- getEC
+          let currEC' = currEC + 1
+          putEC currEC'
 
           memo <- getMemo
           finalState <- get
@@ -404,6 +414,9 @@ generateEAt env typ d = do
           return p
   where
     applyMemoized (p, finalState) = do
+      currEC <- getEC
+      let currEC' = currEC + 1
+      putEC currEC'
       put finalState
       checkE env typ p
       return p
@@ -443,9 +456,21 @@ enumerateAt env typ 0 = do
     recCost <- use cost
     goalName <- asks . view $ _1 . rName
     
+    eGD <- asks . view $ _1 . eGuessDepth
+    mD <- asks . view $ _1 . matchDepth
+    aD <- asks . view $ _1 . auxDepth
+    
+    
+    currSC <- getSC
+    let ss = map (\(x,_) -> x) symbols' 
+    let currSC' = if  (elem goalName ss) && recCost >= d  
+                       then currSC + 2*eGD*mD*aD  +5
+                       else currSC 
+    putSC currSC'
+    
     let symbols'' = if (<) recCost  d
-    		then symbols'
-    		else filter (\(x, _) -> x /= goalName) symbols'
+        then symbols'
+        else filter (\(x, _) -> x /= goalName) symbols'
     msum $ map pickSymbol symbols''
   where
     pickSymbol (name, sch) = do
@@ -456,10 +481,10 @@ enumerateAt env typ 0 = do
       symbolUseCount %= Map.insertWith (+) name 1
       goalName <- asks . view $ _1 . rName
       if name == goalName
-      	then do 
-      	 cost %= (+) 1
-      	else do
-      	 cost %= (+) 0
+        then do 
+          cost %= (+) 1
+        else do
+          cost %= (+) 0
       case Map.lookup name (env ^. shapeConstraints) of
         Nothing -> return ()
         Just sc -> addConstraint $ Subtype env (refineBot env $ shape t) (refineTop env sc) False ""
@@ -537,9 +562,26 @@ enqueueGoal env typ impl depth = do
 getMemo :: MonadHorn s => Explorer s Memo
 getMemo = lift . lift . lift $ use termMemo
 
+-- | Get memoization store
+getEC :: MonadHorn s => Explorer s Int
+getEC = lift . lift . lift $ use enumeratedTerms
+
+-- | Get memoization store
+getSC :: MonadHorn s => Explorer s Int
+getSC = lift . lift . lift $ use shrinkedTerms
+
+
+
 -- | Set memoization store
 putMemo :: MonadHorn s => Memo -> Explorer s ()
 putMemo memo = lift . lift . lift $ termMemo .= memo
+
+-- | Set memoization store
+putEC:: MonadHorn s => Int -> Explorer s ()
+putEC ec = lift . lift . lift $ enumeratedTerms .= ec
+-- | Set memoization store
+putSC:: MonadHorn s => Int -> Explorer s ()
+putSC sc = lift . lift . lift $ shrinkedTerms .= sc
 
 -- getPartials :: MonadHorn s => Explorer s PartialMemo
 -- getPartials = lift . lift . lift $ use partialFailures

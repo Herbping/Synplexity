@@ -7,7 +7,7 @@
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/Tokens.hs:
   hash: 457c6f342f36c0704a1b17c12018c77df2e2a15b4ae02a48f11f2976db0e213c
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid.hs:
-  hash: fefe7863d9f8df3baa562220d964e171a7408e3aedad2fffa01c22f362e135c5
+  hash: eb9fa8362b2c7874d33480ba7d875f247800e223ca4fef50a1c1d5c9818cdfee
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/Parser.hs:
   hash: 3b68518a5913a0c3bc9de378e32dcfd7ec5a09ad935bf0759dab446a7136dd55
 /home/carrotvm/repo/Syncompleixty/synquid/README.md:
@@ -23,17 +23,17 @@
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/Util.hs:
   hash: b1b48b94a4d4f43b5aa5a6d19229dca77ad58c80545be741122e9b73b5a79069
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/Explorer.hs:
-  hash: 7388f9126d467c73ccf85c948dca2e547c784d00d93ba699aa099930653bab68
+  hash: e84188e44f7da369eb632ab9706b742262727459ed970988328db7be1cbe1929
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/SolverMonad.hs:
   hash: ef3ef26be3877f7235f5168ef6c9f483d54d8c4b4ac0090913d9a10fc0a193e5
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/Type.hs:
-  hash: 233242abb373535ef370de69cd36bba9be30aafc2b0804eb9d76cf74cc21dc26
+  hash: dc450a9d1eb7180db7a3d4f32cd9bbcc6e80cc528aa64969b87c0a77881f5a0c
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/Error.hs:
   hash: f480d6fdd8b94eed8da95dc870ec677cf53a433fe3c888fbbc51cb9f34948548
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/Synthesizer.hs:
-  hash: 9cb2e50905a754a32a83516410dbc2d76f6fe63fe1fd9eb2cc26ae451e1ca158
+  hash: 2df137c67f7a480442fec7c16bcba7df1aecfec74957618d4a1a9f1d9a333544
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/TypeChecker.hs:
-  hash: 91ae7f2b33f8a2a3e4c24ad289954e3b3b0108687ba494cdb2cd467eabd60dd1
+  hash: b588fd81e748b72654445a83bda50224fabe05c9f61535dafd9aff40d3572e8c
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/TypeConstraintSolver.hs:
   hash: 38a95cae790a7b557b3632fba3b90a4f002a063648a085a1be0cce02a988f74a
 /home/carrotvm/repo/Syncompleixty/synquid/src/Synquid/Program.hs:

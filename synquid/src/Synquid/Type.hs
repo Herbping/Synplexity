@@ -219,6 +219,17 @@ typeVarsOf (FunctionT _ tArg tRes) = typeVarsOf tArg `Set.union` typeVarsOf tRes
 typeVarsOf (LetT _ tDef tBody) = typeVarsOf tDef `Set.union` typeVarsOf tBody
 typeVarsOf _ = Set.empty
 
+
+-- | 'typeVarsOf' @t@ : all type variables in @t@
+typeNamesOf :: TypeSkeleton r -> Set Id
+typeNamesOf t@(ScalarT baseT r) = case baseT of
+  TypeVarT _ name -> Set.singleton name
+  DatatypeT _ tArgs _ -> Set.unions (map typeNamesOf tArgs)
+  _ -> Set.empty
+typeNamesOf (FunctionT name tArg tRes) = (typeNamesOf tArg `Set.union` typeNamesOf tRes) `Set.union` Set.singleton name
+typeNamesOf (LetT _ tDef tBody) = typeNamesOf tDef `Set.union` typeNamesOf tBody
+typeNamesOf _ = Set.empty
+
 {- Refinement types -}
 
 -- | Unrefined typed
