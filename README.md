@@ -1,10 +1,14 @@
 ### Started Guide:
 
 To install Synplexity, you will need [stack](https://docs.haskellstack.org/en/stable/README/) and [z3](https://github.com/Z3Prover/z3/releases/tag/z3-4.7.1). After installing z3, modify the following two entries in synquid/stack.yaml to correct dictionary:
+
 extra-include-dirs:
-  - /home/carrotvm/local/z3-master/src/api
+
+  \- /home/carrotvm/local/z3-master/src/api
+  
 extra-lib-dirs:
-  - /home/carrotvm/local/z3-master/build  
+
+  \- /home/carrotvm/local/z3-master/build  
 
 In the terminal, execute the following commands (lines that start with `$`, omit the `$` while running). Lines starting with # are comments for your convenience, please don’t type them into the command line. 
 
