@@ -40,6 +40,12 @@ The result table is stored in result.csv as the following format.
 Benchmark, Spec_size, Solution_size, Running_time
 ```
 
+> :warning: The running time may vary from the number shown in the table in [Synplexity paper](https://arxiv.org/abs/2103.04188) depdens on the features of your machine. ALso, another reason for the deviation is that the configurations (e.g., number of matches and max depth of application terms) used in the table are not the optimal configurations. 
+Particularly, for the benchmarks ```Resyn/list-intersect``` and ```Resyn/list-diff```, Resyn used a configuration ```-backtrack```, which is not supported by our tool. So we have to use a new configuration supported by Synplexity. We used the configuration
+```-f=AllArguments -u -m=4``` at the beginning for the two benchmarks, with which Synquid run in about 40 seconds. However, later we realized there can be a better configuration for them; and it turns out that the following one is good enough. 
+```-f=AllArguments -a=2```.
+
+
 ## Benchmarks ##
 
 All benchmarks can be found in the folders under test/Complexity.
