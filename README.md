@@ -24,6 +24,14 @@ The instruction of installing Synplexity is in ```synquid/README.md```.
 
 
 ## One-click Script ##
+
+### Build ###
+The script used to build Synplexity is ```build.sh```. It will install ```git```, ```python2.7```, ```stack```, and ```z3```, and build ```z3``` and the source codes of Synplexity. 
+```
+$ bash build.sh
+```
+
+### Run ###
 Type in command line
 ```
 $ cd test/Complexity
