@@ -4,9 +4,9 @@ flags:
 packages:
   - '.'
 resolver: lts-15.3
-extra-include-dirs:
-  - /home/carrotvm/local/z3-master/src/api
-extra-lib-dirs:
-  - /home/carrotvm/local/z3-master/build  
 extra-deps:
   - z3-408.2
+extra-include-dirs:
+ - ./z3/src/api
+extra-lib-dirs:
+ - ./z3/build  
