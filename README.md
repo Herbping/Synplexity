@@ -6,13 +6,13 @@ To install Synplexity, you will need [stack](https://docs.haskellstack.org/en/st
 ```
 extra-include-dirs:
 
-  - /home/carrotvm/local/z3-master/src/api
+   - ./z3/src/api
   
 extra-lib-dirs:
 
-  - /home/carrotvm/local/z3-master/build
+  - ./z3/build  
 ```
-Above is the example where the z3 home is ```/home/carrotvm/local/z3-master```.
+Above is the example where the z3 home is ```- ./z3```.
 
 In the terminal, execute the following commands (lines that start with `$`, omit the `$` while running). Lines starting with # are comments for your convenience, please don’t type them into the command line. 
 
